@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: picklepro-api
+    runtime: node
+    plan: free
+    # Builds the client too, so this service's own URL is a full backup of the Vercel site.
+    buildCommand: npm run setup && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

@@ -1,0 +1,15 @@
+{
+  "name": "picklepro",
+  "private": true,
+  "scripts": {
+    "setup": "npm ci --prefix server --omit=dev && npm ci --prefix client --include=dev",
+    "dev": "npm run dev --prefix server & npm run dev --prefix client & wait",
+    "test": "npm test --prefix server",
+    "build": "npm run build --prefix client",
+    "start": "npm start --prefix server",
+    "setup:dev": "npm install --prefix server && npm install --prefix client"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

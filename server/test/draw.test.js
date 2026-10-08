@@ -114,6 +114,7 @@ test('full draw A, Women, B, C, D with guards, undo and export', async () => {
     s = await state();
     assert.equal(s.current, category);
     assert.equal(s.remaining.length, 28);
+    let undid = false;
     for (let team = 1; team <= 28; team++) {
       if (team === 5) {
         // Double click: same request twice in parallel -> exactly one draw.
@@ -126,7 +127,8 @@ test('full draw A, Women, B, C, D with guards, undo and export', async () => {
       s = await state();
       assert.equal(s.remaining.length, 28 - team);
       assert.equal(s.last.assignments[0].teamNumber, team);
-      if (team === 10) {
+      if (team === 10 && !undid) {
+        undid = true;
         // Undo the last spin: team 10 opens up again, the player goes back to the pool.
         const undone = s.last;
         assert.equal((await api('/undo', { method: 'POST', body: { actionId: 'stale' } })).status, 409);
