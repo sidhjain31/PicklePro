@@ -34,7 +34,8 @@ export function useLive() {
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
     socket.on('connect_error', () => setConnected(false));
-    socket.on('draw:spinning', e => setShow(prev => (prev?.actionId === e.actionId ? prev : { ...e, phase: 'spinning' })));
+    // `live` = this screen saw the spin start, so it may play the countdown (late joiners skip it).
+    socket.on('draw:spinning', e => setShow(prev => (prev?.actionId === e.actionId ? prev : { ...e, phase: 'spinning', live: true })));
     socket.on('draw:revealed', e => setShow(prev => land(prev, e)));
     socket.on('draw:undone', () => setShow(null));
     socket.on('tournament:state', s => {

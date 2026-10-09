@@ -29,6 +29,8 @@ export async function exportWorkbook(tournamentId) {
     { header: 'Event ID', key: 'eventId', width: 26 },
     { header: 'Action ID', key: 'actionId', width: 38 },
     { header: 'Status', key: 'status', width: 10 },
+    { header: 'Fairness commitment (SHA-256)', key: 'commitment', width: 66 },
+    { header: 'Fairness key (revealed)', key: 'salt', width: 66 },
   ];
   history.addRows(historyRows(s).map(r => ({ ...r, status: r.voided ? 'UNDONE' : 'Final' })));
   bold(history);

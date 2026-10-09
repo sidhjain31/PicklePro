@@ -8,7 +8,7 @@ process.env.ADMIN_PASSWORD = 'test-password';
 process.env.SESSION_SECRET = 'x'.repeat(32);
 const MONGO = process.env.TEST_MONGODB_URI ?? 'mongodb://127.0.0.1:27017/picklepro_test';
 const { start } = await import('../src/server.js');
-const { shuffle } = await import('../src/draw.js');
+const { shuffle, proofText, sha256 } = await import('../src/draw.js');
 const { headerCategory, parseUpload } = await import('../src/excel.js');
 
 const CATS = ['A', 'WOMEN', 'B', 'C', 'D'];
@@ -301,12 +301,12 @@ test('login cookie is HttpOnly + SameSite=Strict, and logout clears it', async (
   assert.match(out.headers.get('set-cookie'), /admin=;/);
 });
 
-test('new tournaments default to A, Women, B, C, D', async () => {
+test('new tournaments default to A, Women, B, C', async () => {
   await ok('/tournament', { method: 'PATCH', body: { categories: ['A'] } });
   await ok('/tournaments', { method: 'POST', body: { name: 'Defaults' } });
   // A new tournament copies the previous order; a brand-new database gets the full default.
   const { Tournament } = await import('../src/models.js');
-  assert.deepEqual(new Tournament({ name: 'x' }).categories, CATS);
+  assert.deepEqual([...new Tournament({ name: 'x' }).categories], ['A', 'WOMEN', 'B', 'C']);
 });
 
 test('categories lock at start and the next category waits for finalize', async () => {
@@ -360,4 +360,46 @@ test('login is rate limited after repeated failures only', async () => {
     assert.equal((await api('/auth/login', { method: 'POST', body: { password: 'bad' }, auth: false })).status, 401);
   }
   assert.equal((await api('/auth/login', { method: 'POST', body: { password: 'test-password' }, auth: false })).status, 429);
+});
+
+test('A is shuffled in one go wherever it sits in the order', async () => {
+  await freshTournament({ categories: ['WOMEN', 'A'] });
+  assert.equal((await state()).mode, 'spin');
+  for (let team = 1; team <= 28; team++) assert.equal((await api('/draw', { method: 'POST', body: { category: 'WOMEN', team } })).status, 200);
+  await ok('/finalize', { method: 'POST', body: { category: 'WOMEN' } });
+  const s = await state();
+  assert.equal(s.mode, 'shuffle');
+  assert.equal((await spin()).status, 200);
+  assert.equal((await state()).teams.filter(t => t.players.A).length, 28);
+});
+
+test('every draw is provably fair: sealed before the spin, verifiable after', async t => {
+  await freshTournament({ categories: ['A', 'WOMEN'], spinMs: 300 });
+  const socket = connect(`http://127.0.0.1:${server.port}`, { transports: ['websocket'] });
+  t.after(() => socket.close());
+  await new Promise(resolve => socket.once('tournament:state', resolve));
+  for (const category of ['A', 'WOMEN']) {
+    const spinning = new Promise(resolve => socket.once('draw:spinning', resolve));
+    const revealed = new Promise(resolve => socket.once('draw:revealed', resolve));
+    assert.equal((await spin()).status, 200);
+    const sealed = await spinning;
+    assert.match(sealed.commitment, /^[0-9a-f]{64}$/);
+    // While spinning: the commitment is public, the key is not anywhere.
+    const during = await state();
+    assert.equal(during.pending.commitment, sealed.commitment);
+    assert.equal(during.pending.salt, undefined);
+    assert.notEqual(during.last?.actionId, during.pending.actionId, 'the spinning draw is not in `last` yet');
+    const done = await revealed;
+    assert.match(done.salt, /^[0-9a-f]{64}$/);
+    assert.equal(done.commitment, sealed.commitment);
+    assert.equal(sha256(proofText(done)), sealed.commitment, 'result matches what was sealed');
+    // Tampering with any detail breaks the proof.
+    const forged = { ...done, assignments: [{ ...done.assignments[0], name: 'Someone Else' }, ...done.assignments.slice(1)] };
+    assert.notEqual(sha256(proofText(forged)), sealed.commitment);
+    assert.equal((await state()).last.salt, done.salt);
+    if (category === 'A') await ok('/finalize', { method: 'POST', body: { category: 'A' } });
+  }
+  socket.close();
+  const history = (await ok('/admin')).history;
+  assert.ok(history.every(h => /^[0-9a-f]{64}$/.test(h.commitment) && /^[0-9a-f]{64}$/.test(h.salt)));
 });

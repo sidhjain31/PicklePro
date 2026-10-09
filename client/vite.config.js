@@ -2,16 +2,16 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const COURT = '#1d4f9c';
+const COURT = '#0f2a6b';
 
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.png', 'logo.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'PicklePro Team Draw',
+        name: 'ICC Pickleball Team Draw',
         short_name: 'Team Draw',
         description: 'Watch the live team draw.',
         theme_color: COURT,

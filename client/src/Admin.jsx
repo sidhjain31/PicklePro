@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { downloadReport } from './report.js';
 import { Board } from './Board.jsx';
 import { ConnectionBanner, Header, Steps } from './Live.jsx';
 import { Stage } from './Stage.jsx';
@@ -15,19 +16,41 @@ export function Admin() {
   useEffect(() => {
     api('/auth/me').then(r => setAdmin(r.admin), () => setAdmin(false));
   }, []);
-  if (admin === null) return <p className="page-note">Loading…</p>;
+  if (admin === null) return <Waking />;
   return admin ? <Dashboard onLogout={logout} /> : <Login onLogin={() => setAdmin(true)} />;
+}
+
+// Render's free tier sleeps after 15 idle minutes and takes up to a minute to wake.
+export function Waking() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <main className="login">
+      <div className="card" role="status">
+        <p className="eyebrow">Team draw</p>
+        <h1>Connecting…</h1>
+        {slow && <p className="hint">The server is waking up. This can take up to a minute — keep this page open.</p>}
+      </div>
+    </main>
+  );
 }
 
 function Login({ onLogin }) {
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const submit = async e => {
     e.preventDefault();
+    setBusy(true);
+    setError('');
     try {
       await api('/auth/login', { method: 'POST', body: { password: new FormData(e.target).get('password') } });
       onLogin();
     } catch (err) {
       setError(err.message);
+      setBusy(false);
     }
   };
   return (
@@ -40,7 +63,7 @@ function Login({ onLogin }) {
           <input name="password" type="password" autoComplete="current-password" required autoFocus />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
-        <button className="btn btn-primary">Log in</button>
+        <button className="btn btn-primary" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
       </form>
     </main>
   );
@@ -82,6 +105,7 @@ function Dashboard({ onLogout }) {
     <>
       <Header state={state} connected={connected}>
         <a className="btn btn-small" href="/" target="_blank" rel="noreferrer">Audience view</a>
+        <a className="btn btn-small" href="/screen" target="_blank" rel="noreferrer">Big screen</a>
         <button className="btn btn-small" onClick={logout}>Log out</button>
       </Header>
       <ConnectionBanner connected={connected} />
@@ -92,7 +116,7 @@ function Dashboard({ onLogout }) {
         </div>
       )}
       {!state || !data ? (
-        <p className="page-note">Loading…</p>
+        <Waking />
       ) : state.status === 'DRAFT' ? (
         <>
           <Setup {...ctx} />
@@ -125,7 +149,10 @@ function Controls({ state, data, run, busy, show, connected }) {
   if (state.status === 'COMPLETED') {
     return (
       <div className="controls">
-        <a className="btn btn-spin" href="/api/export.xlsx">Export Excel</a>
+        <button className="btn btn-spin" disabled={busy} onClick={() => run(() => downloadReport(state))}>Download PDF report</button>
+        <div className="controls-row">
+          <a className="btn btn-small" href="/api/export.xlsx">Export Excel</a>
+        </div>
       </div>
     );
   }
@@ -168,6 +195,7 @@ function Controls({ state, data, run, busy, show, connected }) {
       <div className="controls-row">
         <button className="btn btn-small" disabled={busy || !canUndo || !connected} onClick={undo}>Undo last draw</button>
         <a className="btn btn-small" href="/api/export.xlsx">Export Excel</a>
+        <button className="btn btn-small" disabled={busy} onClick={() => run(() => downloadReport(state))}>PDF report</button>
       </div>
       {data.history.length === 0 && <p className="controls-note">Spin results are saved the moment they're drawn.</p>}
     </div>

@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import { Tournament, Player, DrawEvent, LABELS, ALL_CATEGORIES } from './models.js';
 
@@ -89,11 +89,19 @@ export async function snapshot(tournamentId) {
   };
 }
 
+// The exact text that is hashed. Clients rebuild it to verify; keep in sync with client/src/fair.js.
+export const proofText = ({ actionId, category, assignments, salt }) =>
+  `PicklePro|v1|${actionId}|${category}|${assignments.map(a => `${a.teamNumber}=${a.name}`).join(';')}|${salt}`;
+export const sha256 = text => createHash('sha256').update(text, 'utf8').digest('hex');
+
+// Only ever built from revealed events, so including the salt is safe.
 const actionSummary = events => ({
   actionId: events[0].actionId,
   category: events[0].category,
   mode: modeOf(events[0].category),
   assignments: events.map(e => ({ teamNumber: e.teamNumber, name: e.playerName })),
+  commitment: events[0].commitment ?? null,
+  salt: events[0].salt ?? null,
 });
 
 // What the audience (and admin board) may see: nothing that is still behind a running spin.
@@ -125,7 +133,7 @@ export async function publicState(s) {
     remaining: players.filter(p => p.category === current && !assigned.has(String(p._id))).map(p => p.name),
     teams,
     pending: pending.length
-      ? { actionId: pending[0].actionId, category: pending[0].category, mode: modeOf(pending[0].category), teamNumbers: pending.map(e => e.teamNumber) }
+      ? { actionId: pending[0].actionId, category: pending[0].category, mode: modeOf(pending[0].category), teamNumbers: pending.map(e => e.teamNumber), commitment: pending[0].commitment ?? null }
       : null,
     last: last ? actionSummary(revealed.filter(e => e.actionId === last.actionId)) : null,
   };
@@ -158,6 +166,8 @@ export const historyRows = s => s.events
     eventId: String(e._id),
     actionId: e.actionId,
     voided: e.voided,
+    commitment: e.commitment ?? '',
+    salt: e.salt ?? '',
   }));
 
 function requireReady({ t, players }, c) {
@@ -277,7 +287,12 @@ export const draw = ({ category, team } = {}) => locked(async () => {
   const picks = current === 'A' ? shuffle(pool) : [pool[randomInt(pool.length)]];
   const actionId = randomUUID();
   const revealAt = new Date(Date.now() + t.spinMs);
+  const salt = randomBytes(32).toString('hex');
+  const assignments = picks.map((p, i) => ({ teamNumber: filled + 1 + i, name: p.name }));
+  const commitment = sha256(proofText({ actionId, category: current, assignments, salt }));
   await DrawEvent.insertMany(picks.map((p, i) => ({
+    commitment,
+    salt,
     tournamentId: t._id,
     actionId,
     sequence: events.length + i + 1,
@@ -294,6 +309,7 @@ export const draw = ({ category, team } = {}) => locked(async () => {
     mode: modeOf(current),
     teamNumbers: picks.map((_, i) => filled + 1 + i),
     candidates: pool.map(p => p.name),
+    commitment,
   });
   await broadcast();
   return { actionId };

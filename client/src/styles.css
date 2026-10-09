@@ -1,12 +1,14 @@
-/* Palette from a pickleball court: blue playing surface, green surround, white lines,
-   optic-yellow ball. Yellow is reserved for the winner and the one primary action. */
+/* Palette from the ICC Pickleball logo: royal-blue and lime paddles on a navy shield, white
+   lettering, yellow ball. Yellow is reserved for the winner and the one primary action. */
 :root {
-  --court: #1d4f9c;
-  --court-deep: #173f7e;
-  --surround: #2e7556;
+  --court: #123786;
+  --court-deep: #0f2a6b;
+  --surround: #1f5fc6;
+  --paddle-blue: #1f5fc6;
+  --paddle-green: #6cc04a;
   --line: #f4f7f2;
-  --ball: #ddf247;
-  --net: #0d2550;
+  --ball: #f4e04d;
+  --net: #0b1f52;
   --paper: #ffffff;
   --ink: #0f1c35;
   --muted: rgb(244 247 242 / 0.7);
@@ -40,8 +42,8 @@ a { color: inherit; }
   justify-content: space-between;
   gap: 12px;
   padding: max(12px, env(safe-area-inset-top)) 16px 12px;
-  background: var(--surround);
-  border-bottom: 3px solid var(--line);
+  background: linear-gradient(100deg, var(--paddle-blue), var(--court-deep) 55%, #3f8f3a);
+  border-bottom: 4px solid var(--paddle-green);
 }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand-mark {
@@ -358,3 +360,144 @@ tr.voided td:last-child { text-decoration: none; color: var(--bad); font-weight:
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 .team abbr { text-decoration: none; }
+
+/* ---------- ICC theme: logo, slot machine, celebrations ---------- */
+body { background: radial-gradient(ellipse at top, #1a4aa8, var(--court) 45%, var(--court-deep)); background-attachment: fixed; }
+.brand-logo { flex: none; width: 52px; height: 52px; object-fit: contain; filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.35)); }
+.stage-logo { width: min(220px, 55vw); margin: 0 auto; filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.4)); animation: float 4s ease-in-out infinite; }
+@keyframes float { 50% { transform: translateY(-8px) rotate(-1.5deg); } }
+.login .card h1::before { content: ''; display: block; width: 120px; height: 120px; margin: 0 auto 8px; background: url(/logo.png) center / contain no-repeat; }
+
+.stage { overflow: hidden; border-color: var(--paddle-green); border-radius: 14px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.35), inset 0 0 0 1px rgb(255 255 255 / 0.06); }
+.team-big { color: var(--ball); display: inline-block; }
+.stage-live .team-big { animation: thump 0.9s ease-in-out infinite; }
+.stage-done .team-big { animation: none; }
+@keyframes thump { 50% { transform: scale(1.12); } }
+
+/* The machine: two paddles hold the reel, like the crossed paddles on the logo. */
+.machine { position: relative; display: grid; grid-template-columns: clamp(30px, 7vw, 52px) 1fr clamp(30px, 7vw, 52px); gap: 10px; align-items: center; }
+.paddle { transform-origin: 50% 92%; width: 100%; height: calc(var(--row) * 3.8); filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.4)); }
+.paddle-left { transform: rotate(-6deg); }
+.paddle-right { transform: rotate(6deg); }
+.machine-spinning .paddle-left, .machine-landing .paddle-left { animation: swing-l 0.7s ease-in-out infinite; transform-origin: bottom; }
+.machine-spinning .paddle-right, .machine-landing .paddle-right { animation: swing-r 0.7s ease-in-out infinite; transform-origin: bottom; }
+@keyframes swing-l { 0%, 100% { transform: rotate(-6deg); } 15% { transform: rotate(-16deg); } }
+@keyframes swing-r { 0%, 100% { transform: rotate(6deg); } 50% { transform: rotate(6deg); } 65% { transform: rotate(16deg); } }
+.reel { border-radius: 10px; background: linear-gradient(var(--net), #10306f 50%, var(--net)); border-block-color: var(--paddle-green); }
+.machine-landing .reel, .machine-spinning .reel { box-shadow: 0 0 0 2px var(--ball), 0 0 24px rgb(244 224 77 / 0.35); }
+.pointer { position: absolute; top: calc(var(--row) * 2.5); width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; z-index: 2;
+  background: radial-gradient(circle at 35% 35%, #fff8 0 12%, transparent 13%), var(--ball); box-shadow: 0 0 0 2px var(--net); }
+.pointer-left { left: 4px; }
+.pointer-right { right: 4px; }
+
+/* The rally ball arcs paddle to paddle above the reel while it spins. */
+.rally-ball { position: absolute; top: -26px; left: 0; width: 22px; height: 22px; border-radius: 50%; pointer-events: none; z-index: 3;
+  background:
+    radial-gradient(circle at 30% 30%, var(--net) 0 9%, transparent 10%),
+    radial-gradient(circle at 68% 34%, var(--net) 0 9%, transparent 10%),
+    radial-gradient(circle at 48% 70%, var(--net) 0 9%, transparent 10%),
+    var(--ball);
+  box-shadow: 0 4px 8px rgb(0 0 0 / 0.4);
+  animation: rally 1.4s ease-in-out infinite; }
+@keyframes rally {
+  0% { transform: translate(0, 10px) rotate(0); }
+  25% { transform: translate(calc(25cqw), -22px) rotate(180deg); }
+  50% { transform: translate(calc(100cqw - 22px), 10px) rotate(360deg); }
+  75% { transform: translate(calc(75cqw - 22px), -22px) rotate(540deg); }
+  100% { transform: translate(0, 10px) rotate(720deg); }
+}
+.machine { container-type: inline-size; }
+.suspense { font: 700 1.1rem/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; animation: pulse 1s ease-in-out infinite; }
+
+/* Winner card */
+.winner-card { position: relative; display: grid; justify-items: center; gap: 8px; padding: 18px 20px 14px; width: 100%;
+  border-radius: 12px; background: linear-gradient(135deg, #ffffff, #eef6ff); color: var(--net);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.35); animation: pop 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.winner-name { font: 900 clamp(2rem, 7vw, 3.4rem)/1 var(--display); text-transform: uppercase; letter-spacing: 0.02em; color: var(--court-deep); }
+.winner-card .badge { background: var(--paddle-green); color: #fff; font: 800 1.3rem/1 var(--display); text-transform: uppercase; padding: 8px 16px 6px; border-radius: 6px; }
+.smash { position: absolute; top: -14px; right: 12px; padding: 4px 10px 2px; background: var(--ball); color: var(--net); border-radius: 6px;
+  font: 900 1rem/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; transform: rotate(6deg);
+  animation: stamp 0.4s 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes pop { from { opacity: 0; transform: scale(0.6) translateY(16px); } }
+
+/* A shuffle: cards dealt one by one */
+.deal { list-style: none; margin: 10px 0 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; max-height: 52vh; overflow: auto; }
+.deal li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: #fff; color: var(--net); text-align: left;
+  animation: flip 0.45s ease-out both; transform-origin: left; }
+.deal-team { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--ball); font: 800 0.95rem/1 var(--display); }
+.deal-name { font-weight: 700; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes flip { from { opacity: 0; transform: perspective(400px) rotateY(-80deg); } }
+
+.stage-tools { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.sound-toggle[aria-pressed='true'] { border-color: var(--ball); color: var(--ball); }
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
+.team.current { box-shadow: 0 0 0 2px var(--ball), 0 0 18px rgb(244 224 77 / 0.35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rally-ball, .stage-logo, .team-big, .paddle, .suspense { animation: none !important; }
+}
+
+/* ---------- Countdown ---------- */
+.machine-wrap { position: relative; }
+.countdown { position: absolute; inset: 0; display: grid; place-items: center; z-index: 5; border-radius: 10px;
+  background: radial-gradient(circle, rgb(11 31 82 / 0.75), rgb(11 31 82 / 0.92)); }
+.countdown-num { font: 900 calc(var(--row) * 2.6)/1 var(--display); color: var(--ball); text-transform: uppercase;
+  text-shadow: 0 6px 0 var(--net), 0 0 40px rgb(244 224 77 / 0.6); animation: count 1s ease-out both; }
+@keyframes count { 0% { opacity: 0; transform: scale(2.4); } 25% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(0.7); } }
+
+/* ---------- Big screen (/screen) ---------- */
+.screen { height: 100dvh; display: grid; grid-template-rows: auto auto 1fr; overflow: hidden; }
+.screen-idle, .screen-idle * { cursor: none !important; }
+.screen-head { display: flex; align-items: center; gap: 20px; padding: 14px 28px;
+  background: linear-gradient(100deg, var(--paddle-blue), var(--court-deep) 55%, #3f8f3a); border-bottom: 4px solid var(--paddle-green); }
+.screen-head img { width: clamp(64px, 7vw, 110px); filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.4)); }
+.screen-head h1 { font: 900 clamp(1.8rem, 3.6vw, 3.4rem)/1 var(--display); text-transform: uppercase; letter-spacing: 0.02em; }
+.screen-steps { margin: 0 0 0 auto; padding: 0; list-style: none; display: flex; gap: 10px; }
+.screen-steps li { padding: 8px 18px; border-radius: 999px; border: 3px solid rgb(244 247 242 / 0.35);
+  font: 800 clamp(1rem, 1.6vw, 1.6rem)/1 var(--display); text-transform: uppercase; color: var(--muted); }
+.screen-steps .step-done { background: var(--line); color: var(--court-deep); border-color: var(--line); }
+.screen-steps .step-active { border-color: var(--ball); color: var(--ball); }
+.screen-main { display: grid; grid-template-columns: 1fr minmax(300px, 27vw); gap: 24px; padding: 2vh 28px; min-height: 0; }
+.stage-big { --row: clamp(2.6rem, 6.4vh, 6rem); align-content: center; gap: 1.6vh; padding: 2vh 32px; min-height: 0; overflow: hidden; }
+.stage-big .stage-title { font-size: clamp(2.4rem, 7vh, 5.5rem); text-align: center; }
+.stage-big .stage-head .eyebrow { font-size: clamp(0.9rem, 1.3vw, 1.3rem); }
+.stage-big .machine { grid-template-columns: clamp(60px, 6vw, 110px) 1fr clamp(60px, 6vw, 110px); gap: 14px; }
+.stage-big .pointer { width: 28px; height: 28px; margin-top: -14px; }
+.stage-big .rally-ball { width: 34px; height: 34px; top: -40px; }
+.stage-big .winner-name { font-size: clamp(2.6rem, 8vh, 6.5rem); }
+.stage-big .winner-card { padding-block: 1.6vh 1.2vh; }
+.stage-big .winner-card .badge { font-size: clamp(1.4rem, 2.4vw, 2.4rem); }
+.stage-big .smash { font-size: clamp(1.1rem, 1.8vw, 1.8rem); }
+.stage-big .stage-note, .stage-big .suspense { font-size: clamp(1.1rem, 1.8vw, 1.8rem); }
+.stage-big .stage-logo { width: min(340px, 40vh); }
+.stage-big .deal { max-height: 46vh; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.stage-big .deal-name { font-size: 1.1rem; }
+.screen .stage-tools { display: none; }
+.screen-side { display: grid; grid-template-rows: 1fr auto; gap: 20px; min-height: 0; }
+.screen-picks { display: grid; grid-template-rows: auto 1fr; min-height: 0; padding: 16px; border-radius: 14px; background: var(--net); border: 3px solid var(--paddle-green); }
+.screen-picks h2 { display: flex; justify-content: space-between; margin: 0 0 10px; font: 900 clamp(1.4rem, 2.2vw, 2.2rem)/1 var(--display); text-transform: uppercase; }
+.screen-picks h2 span { color: var(--ball); }
+.screen-picks ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(14, minmax(0, 1fr)); grid-auto-flow: column; gap: 2px 10px; min-height: 0; overflow: hidden; }
+.screen-picks li { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 0; color: var(--muted); font-size: clamp(0.7rem, 1.9vh, 1.1rem); }
+.screen-picks li.has { color: var(--line); font-weight: 700; }
+.screen-picks li.fresh { color: var(--ball); animation: rise 0.5s ease-out both; }
+.pick-team { flex: none; display: grid; place-items: center; width: 1.9em; height: 1.9em; border-radius: 50%; background: rgb(255 255 255 / 0.1); font: 800 1em/1 var(--display); }
+.has .pick-team { background: var(--ball); color: var(--net); }
+.pick-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen-join { display: grid; justify-items: center; gap: 6px; padding: 16px; border-radius: 14px; background: #fff; color: var(--net); text-align: center; }
+.screen-join img { width: min(180px, 18vh); }
+.screen-join p { font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.85rem; }
+.screen-join strong { font: 900 clamp(1rem, 1.5vw, 1.5rem)/1 var(--display); }
+@media (max-width: 900px) {
+  .screen-main { grid-template-columns: 1fr; }
+  .screen-steps { display: none; }
+}
+
+/* ---------- Provably fair seal ---------- */
+.seal { justify-self: center; text-align: center; font-size: 0.85rem; color: var(--muted); max-width: 100%; }
+.seal code { font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; color: var(--line); word-break: break-all; }
+.seal-btn { font: inherit; color: inherit; background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.25); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.seal-ok .seal-btn { border-color: var(--paddle-green); color: #c9f1b5; }
+.seal-bad .seal-btn { border-color: var(--bad); color: #ffb4a6; }
+.seal-detail { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: rgb(0 0 0 / 0.25); text-align: left; display: grid; gap: 6px; }
+.stage-big .seal { font-size: clamp(0.9rem, 1.4vw, 1.3rem); }

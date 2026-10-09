@@ -30,7 +30,7 @@ export function Header({ state, connected, children }) {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden="true" />
+        <img className="brand-logo" src="/logo.png" alt="" />
         <div>
           <p className="brand-kicker">Live team draw</p>
           <h1 className="brand-name">{state?.name ?? 'Team Draw'}</h1>
