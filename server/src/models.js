@@ -11,7 +11,7 @@ export const Tournament = model('Tournament', new Schema({
   status: { type: String, enum: ['DRAFT', 'LIVE', 'COMPLETED'], default: 'DRAFT' },
   teamCount: { type: Number, default: TEAM_COUNT },
   // Enabled categories in draw order. Locked once the draw starts.
-  categories: { type: [{ type: String, enum: ALL_CATEGORIES }], default: ['A', 'WOMEN', 'B', 'C'] },
+  categories: { type: [{ type: String, enum: ALL_CATEGORIES }], default: ['A', 'WOMEN', 'B', 'C', 'D'] },
   // Index into `categories` of the category being drawn; everything before it is finalized.
   currentIndex: { type: Number, default: 0 },
   spinMs: { type: Number, default: 6000, min: 0, max: 30000 },

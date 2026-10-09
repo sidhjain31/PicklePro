@@ -16,7 +16,11 @@ export function createApp() {
   app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: null } } }));
   app.use(express.json({ limit: '6mb' }));
 
-  app.get('/api/health', (req, res) => res.json({ ok: true }));
+  // 503 when Mongo is down, so Render / UptimeRobot see a server that can't actually draw.
+  app.get('/api/health', (req, res) => {
+    const db = mongoose.connection.readyState === 1;
+    res.status(db ? 200 : 503).json({ ok: db, db: db ? 'up' : 'down' });
+  });
   app.get('/api/state', async (req, res) => res.json(await engine.publicState()));
   app.get('/api/auth/me', (req, res) => res.json({ admin: isAdmin(req) }));
   app.post('/api/auth/login', loginLimiter, login);
@@ -35,8 +39,10 @@ export function createApp() {
   admin.post('/draw', ok(engine.draw));
   admin.post('/undo', ok(engine.undo));
   admin.post('/finalize', ok(engine.finalize));
+  admin.get('/tournaments', async (req, res) => res.json(await engine.listTournaments()));
+  // ?tournament=<id> exports an archived tournament; without it, the active one.
   admin.get('/export.xlsx', async (req, res) => {
-    const { buffer, name } = await exportWorkbook();
+    const { buffer, name } = await exportWorkbook(req.query.tournament);
     const file = `${name.replace(/[^\w -]+/g, '').trim() || 'team-draw'}.xlsx`;
     res.attachment(file).type('xlsx').send(Buffer.from(buffer));
   });

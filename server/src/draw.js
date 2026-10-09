@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
+import mongoose from 'mongoose';
 import { Tournament, Player, DrawEvent, LABELS, ALL_CATEGORIES } from './models.js';
 
 export class HttpError extends Error {
@@ -47,8 +48,33 @@ export async function activeTournament() {
   return (await Tournament.findOne().sort({ _id: -1 })) ?? Tournament.create({ name: 'Team Draw' });
 }
 
-export async function snapshot() {
-  const t = await activeTournament();
+// `tournamentId` reads an archived tournament; by default it's the active (newest) one.
+async function findTournament(id) {
+  const t = mongoose.isValidObjectId(id) && await Tournament.findById(id);
+  return t || fail(404, 'Tournament not found');
+}
+
+// Every tournament, newest first; the first one is active, the rest are the archive.
+export async function listTournaments() {
+  const [all, counts] = await Promise.all([
+    Tournament.find().sort({ _id: -1 }).lean(),
+    DrawEvent.aggregate([{ $match: { voided: false } }, { $group: { _id: '$tournamentId', n: { $sum: 1 } } }]),
+  ]);
+  const drawn = new Map(counts.map(c => [String(c._id), c.n]));
+  return all.map((t, i) => ({
+    id: String(t._id),
+    name: t.name,
+    status: t.status,
+    active: i === 0,
+    createdAt: t.createdAt,
+    categories: t.categories,
+    teamCount: t.teamCount,
+    draws: drawn.get(String(t._id)) ?? 0,
+  }));
+}
+
+export async function snapshot(tournamentId) {
+  const t = tournamentId ? await findTournament(tournamentId) : await activeTournament();
   const [players, events] = await Promise.all([
     Player.find({ tournamentId: t._id }).sort({ _id: 1 }).lean(),
     DrawEvent.find({ tournamentId: t._id }).sort({ sequence: 1 }).lean(),

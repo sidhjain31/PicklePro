@@ -10,8 +10,10 @@ const cookieOptions = () => ({ httpOnly: true, sameSite: 'strict', secure: proce
 export function login(req, res) {
   const password = req.body?.password;
   if (typeof password !== 'string' || !timingSafeEqual(digest(password), digest(process.env.ADMIN_PASSWORD))) {
+    recordFailure(req.ip);
     throw new HttpError(401, 'Wrong password');
   }
+  attempts.delete(req.ip);
   const expires = String(Date.now() + TTL_MS);
   res.cookie(COOKIE, `${expires}.${sign(expires)}`, { ...cookieOptions(), maxAge: TTL_MS });
   res.json({ admin: true });
@@ -33,12 +35,21 @@ export function isAdmin(req) {
 
 export const requireAdmin = (req, res, next) => next(isAdmin(req) ? undefined : new HttpError(401, 'Admin login required'));
 
-// ponytail: in-memory per-IP limiter; fine for one server instance.
+// ponytail: in-memory per-IP limiter on *failed* logins; fine for one server instance.
+// Behind Vercel's /api rewrite every visitor shares Vercel's egress IP, so a burst of wrong
+// passwords there can lock the Vercel login for 15 min — the Render URL is the fallback.
+const MAX_FAILURES = 10;
 const attempts = new Map();
-export function loginLimiter(req, res, next) {
+function recordFailure(ip) {
   const now = Date.now();
+  const entry = attempts.get(ip);
+  if (!entry || entry.reset < now) attempts.set(ip, { count: 1, reset: now + 15 * 60 * 1000 });
+  else entry.count++;
+}
+export function loginLimiter(req, res, next) {
   const entry = attempts.get(req.ip);
-  if (!entry || entry.reset < now) attempts.set(req.ip, { count: 1, reset: now + 15 * 60 * 1000 });
-  else if (++entry.count > 10) return next(new HttpError(429, 'Too many login attempts — wait 15 minutes'));
+  if (entry && entry.reset >= Date.now() && entry.count >= MAX_FAILURES) {
+    return next(new HttpError(429, 'Too many login attempts — wait 15 minutes'));
+  }
   next();
 }

@@ -5,8 +5,8 @@ import { LABELS } from './models.js';
 
 const bold = sheet => { sheet.getRow(1).font = { bold: true }; };
 
-export async function exportWorkbook() {
-  const s = await snapshot();
+export async function exportWorkbook(tournamentId) {
+  const s = await snapshot(tournamentId);
   const wb = new ExcelJS.Workbook();
 
   const teams = wb.addWorksheet('Final Teams');

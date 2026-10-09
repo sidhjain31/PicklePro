@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "setup": "npm ci --prefix server --omit=dev && npm ci --prefix client --include=dev",
-    "dev": "npm run dev --prefix server & npm run dev --prefix client & wait",
+    "dev": "node scripts/dev.mjs",
     "test": "npm test --prefix server",
     "build": "npm run build --prefix client",
     "start": "npm start --prefix server",

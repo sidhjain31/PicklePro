@@ -94,7 +94,12 @@ function Dashboard({ onLogout }) {
       {!state || !data ? (
         <p className="page-note">Loading…</p>
       ) : state.status === 'DRAFT' ? (
-        <Setup {...ctx} />
+        <>
+          <Setup {...ctx} />
+          <section className="admin-extras">
+            <Archive state={state} />
+          </section>
+        </>
       ) : (
         <>
           <Steps state={state} />
@@ -107,6 +112,7 @@ function Dashboard({ onLogout }) {
           <section className="admin-extras">
             <UpcomingLists {...ctx} />
             <History history={data.history} />
+            <Archive state={state} />
             <NewTournament {...ctx} />
           </section>
         </>
@@ -367,6 +373,43 @@ function History({ history }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </details>
+  );
+}
+
+const STATUS = { DRAFT: 'Not started', LIVE: 'Stopped mid-draw', COMPLETED: 'Complete' };
+
+// Earlier tournaments (rehearsals, past events). Read-only: the host can only export them.
+function Archive({ state }) {
+  const [list, setList] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    api('/tournaments').then(all => setList(all.filter(t => !t.active)), err => setError(err.message));
+  }, [state?.id]);
+  if (!error && !list?.length) return null;
+  return (
+    <details className="panel">
+      <summary>Past tournaments{list ? ` (${list.length})` : ''}</summary>
+      <div className="card table-wrap">
+        {error ? <p className="error" role="alert">{error}</p> : (
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Created</th><th>Status</th><th>Draws</th><th /></tr>
+            </thead>
+            <tbody>
+              {list.map(t => (
+                <tr key={t.id}>
+                  <td>{t.name}</td>
+                  <td>{new Date(t.createdAt).toLocaleString()}</td>
+                  <td>{STATUS[t.status]}</td>
+                  <td>{t.draws}/{t.teamCount * t.categories.length}</td>
+                  <td><a className="btn btn-small" href={`/api/export.xlsx?tournament=${t.id}`}>Export Excel</a></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </details>
   );

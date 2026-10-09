@@ -224,6 +224,35 @@ test('spin is hidden until reveal, broadcast over Socket.IO, and survives a rest
   assert.equal(s.remaining.length, 26);
 });
 
+test('health reports the database', async () => {
+  assert.deepEqual(await ok('/health', { auth: false }), { ok: true, db: 'up' });
+});
+
+test('archive lists past tournaments and exports any of them', async () => {
+  assert.equal((await api('/tournaments', { auth: false })).status, 401);
+  await freshTournament({ categories: ['WOMEN'] });
+  assert.equal((await spin()).status, 200);
+  const archived = (await state()).id;
+  await ok('/tournaments', { method: 'POST', body: { name: 'Next Cup' } });
+
+  const list = await ok('/tournaments');
+  assert.equal(list[0].name, 'Next Cup');
+  assert.equal(list[0].active, true);
+  const past = list.find(t => t.id === archived);
+  assert.equal(past.active, false);
+  assert.equal(past.status, 'LIVE');
+  assert.equal(past.draws, 1);
+
+  const xlsx = await api(`/export.xlsx?tournament=${archived}`);
+  assert.equal(xlsx.status, 200);
+  assert.match(xlsx.headers.get('content-disposition'), /Test Cup\.xlsx/);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(xlsx.body);
+  assert.equal(wb.getWorksheet('Draw History').rowCount, 2);
+  assert.equal((await api('/export.xlsx?tournament=nope')).status, 404);
+  assert.equal((await api('/export.xlsx?tournament=000000000000000000000000')).status, 404);
+});
+
 test('spreadsheet import', async () => {
   assert.equal(headerCategory('A Player'), 'A');
   assert.equal(headerCategory('Women'), 'WOMEN');
@@ -241,4 +270,94 @@ test('spreadsheet import', async () => {
   assert.deepEqual((await parseUpload({ filename: 'p.xlsx', data })).lists, { C: ['Ravi', 'Om'], D: ['Dev'] });
   await assert.rejects(parseUpload({ filename: 'p.xls', data }), /xlsx or \.csv/);
   await assert.rejects(parseUpload({ filename: 'p.csv', data: Buffer.from('foo,bar\n1,2').toString('base64') }), /First row/);
+});
+
+test('every host route requires the admin cookie', async () => {
+  const routes = [
+    ['GET', '/admin'], ['PATCH', '/tournament'], ['POST', '/tournaments'], ['GET', '/tournaments'],
+    ['PUT', '/players'], ['POST', '/players/import'], ['POST', '/start'], ['POST', '/draw'],
+    ['POST', '/undo'], ['POST', '/finalize'], ['GET', '/export.xlsx'],
+  ];
+  for (const [method, path] of routes) {
+    const r = await api(path, { method, body: method === 'GET' ? undefined : {}, auth: false });
+    assert.equal(r.status, 401, `${method} ${path}`);
+  }
+  // A cookie signed with another secret, and an expired one, are both rejected.
+  const { createHmac } = await import('node:crypto');
+  const signed = (exp, secret) => `admin=${exp}.${createHmac('sha256', secret).update(String(exp)).digest('base64url')}`;
+  const get = c => fetch(`http://127.0.0.1:${server.port}/api/admin`, { headers: { cookie: c } }).then(r => r.status);
+  assert.equal(await get(signed(Date.now() + 1e6, 'y'.repeat(32))), 401);
+  assert.equal(await get(signed(Date.now() - 1, process.env.SESSION_SECRET)), 401);
+  assert.equal(await get(signed(Date.now() + 1e6, process.env.SESSION_SECRET)), 200);
+});
+
+test('login cookie is HttpOnly + SameSite=Strict, and logout clears it', async () => {
+  const res = await api('/auth/login', { method: 'POST', body: { password: 'test-password' }, auth: false });
+  const set = res.headers.get('set-cookie');
+  assert.match(set, /HttpOnly/i);
+  assert.match(set, /SameSite=Strict/i);
+  assert.match(set, /Max-Age=43200/);
+  const out = await api('/auth/logout', { method: 'POST' });
+  assert.match(out.headers.get('set-cookie'), /admin=;/);
+});
+
+test('new tournaments default to A, Women, B, C, D', async () => {
+  await ok('/tournament', { method: 'PATCH', body: { categories: ['A'] } });
+  await ok('/tournaments', { method: 'POST', body: { name: 'Defaults' } });
+  // A new tournament copies the previous order; a brand-new database gets the full default.
+  const { Tournament } = await import('../src/models.js');
+  assert.deepEqual(new Tournament({ name: 'x' }).categories, CATS);
+});
+
+test('categories lock at start and the next category waits for finalize', async () => {
+  await freshTournament({ categories: ['A', 'WOMEN'] });
+  assert.equal((await api('/tournament', { method: 'PATCH', body: { categories: ['WOMEN'] } })).status, 409);
+  assert.equal((await api('/start', { method: 'POST' })).status, 409);
+  assert.equal((await spin()).status, 200);
+  // A is fully drawn but not finalized: Women can't start.
+  assert.equal((await api('/draw', { method: 'POST', body: { category: 'WOMEN', team: 1 } })).status, 409);
+  await ok('/finalize', { method: 'POST', body: { category: 'A' } });
+  assert.equal((await api('/draw', { method: 'POST', body: { category: 'WOMEN', team: 1 } })).status, 200);
+  // Undo can't reach back into the finalized A shuffle.
+  const s = await state();
+  await ok('/undo', { method: 'POST', body: { actionId: s.last.actionId } });
+  const after = await state();
+  assert.equal(after.last.category, 'A');
+  assert.equal((await api('/undo', { method: 'POST', body: { actionId: after.last.actionId } })).status, 409);
+});
+
+test('audience sockets cannot change the draw', async () => {
+  await freshTournament({ categories: ['WOMEN'] });
+  const before = await state();
+  const socket = connect(`http://127.0.0.1:${server.port}`, { transports: ['websocket'] });
+  await new Promise(resolve => socket.once('tournament:state', resolve));
+  for (const event of ['draw', 'draw:spinning', 'draw:revealed', 'undo', 'finalize', 'tournament:state']) {
+    socket.emit(event, { category: 'WOMEN', team: 1, teams: [], status: 'COMPLETED' });
+  }
+  await new Promise(resolve => setTimeout(resolve, 200));
+  socket.close();
+  assert.deepEqual(await state(), before);
+});
+
+test('spreadsheet upload over HTTP is validated', async () => {
+  const b64 = text => Buffer.from(text).toString('base64');
+  assert.equal((await api('/players/import', { method: 'POST', body: {} })).status, 400);
+  assert.equal((await api('/players/import', { method: 'POST', body: { filename: 'x.xlsx', data: b64('not a zip') } })).status, 400);
+  assert.equal((await api('/players/import', { method: 'POST', body: { filename: 'x.txt', data: b64('A\nRahul') } })).status, 400);
+  const good = await ok('/players/import', { method: 'POST', body: { filename: 'x.csv', data: b64('Ladies;Category D\nKruti;Dev\n') } });
+  assert.deepEqual(good.lists, { WOMEN: ['Kruti'], D: ['Dev'] });
+  // Imported lists still go through the same save validation.
+  await ok('/tournaments', { method: 'POST', body: { name: 'Import' } });
+  const tooMany = await api('/players', { method: 'PUT', body: { lists: { A: Array.from({ length: 201 }, (_, i) => `P${i}`) } } });
+  assert.equal(tooMany.status, 400);
+  const longName = await api('/players', { method: 'PUT', body: { lists: { A: ['x'.repeat(61)] } } });
+  assert.equal(longName.status, 400);
+});
+
+test('login is rate limited after repeated failures only', async () => {
+  for (let i = 0; i < 3; i++) await ok('/auth/login', { method: 'POST', body: { password: 'test-password' }, auth: false });
+  for (let i = 0; i < 10; i++) {
+    assert.equal((await api('/auth/login', { method: 'POST', body: { password: 'bad' }, auth: false })).status, 401);
+  }
+  assert.equal((await api('/auth/login', { method: 'POST', body: { password: 'test-password' }, auth: false })).status, 429);
 });

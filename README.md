@@ -6,6 +6,17 @@ Live, server-authoritative team draw for a 28-team doubles tournament. The host 
 - **Women, B, C, D** are drawn one spin at a time; each pick goes to the next team automatically.
 - Every pick is saved before anyone sees it, survives refresh / reconnect / server restart, and can be exported to Excel.
 
+## Production
+
+| | URL |
+|---|---|
+| Audience | https://pickle-pro-peach.vercel.app |
+| Host | https://pickle-pro-peach.vercel.app/admin |
+| Backup (full app on Render) | https://picklepro-api.onrender.com (and `/admin`) |
+| Health | https://picklepro-api.onrender.com/api/health |
+
+New tournaments draw **A → Women → B → C → D** by default; untick or reorder categories at `/admin` before **Start draw**.
+
 ## Stack
 
 | Part | Tech | Free host |
@@ -23,7 +34,7 @@ Requires Node 22.12+ and MongoDB running on `127.0.0.1:27017`.
 ```bash
 npm run setup:dev
 cp server/.env.example server/.env   # then set ADMIN_PASSWORD and SESSION_SECRET
-npm run dev                          # server :4000, client :5173
+npm run dev                          # server :4000, client :5173 (works on Windows, macOS, Linux)
 ```
 
 - Audience: http://localhost:5173
@@ -46,7 +57,7 @@ You need the code in a GitHub repo first (Render and Vercel deploy from GitHub).
 ### 2. Render (API + Socket.IO + backup site)
 1. **New → Blueprint** → pick the repo. It reads `render.yaml`.
 2. Fill in `MONGODB_URI` (from Atlas) and `ADMIN_PASSWORD` (long and random — this is the host login). `SESSION_SECRET` is generated for you.
-3. Deploy, then open `https://<your-service>.onrender.com/api/health` → `{"ok":true}`.
+3. Deploy, then open `https://<your-service>.onrender.com/api/health` → `{"ok":true,"db":"up"}` (it returns 503 if MongoDB is unreachable).
 4. Note the exact URL. If Render added a suffix to `picklepro-api`, use that URL in the next step.
 
 ### 3. Vercel (main site)
@@ -57,6 +68,14 @@ You need the code in a GitHub repo first (Render and Vercel deploy from GitHub).
 
 ### 4. Keep Render awake
 Render's free tier sleeps after 15 minutes without traffic, and waking takes about a minute. Create a free [UptimeRobot](https://uptimerobot.com) HTTP monitor on `https://<render-url>/api/health` every 5 minutes. It also emails you if the server goes down.
+
+## Past tournaments
+
+**Start a new tournament** keeps the old one in the database. On the host page, **Past tournaments** lists every earlier tournament (rehearsals included) with its status and draw count, and exports any of them to Excel. Past tournaments are read-only.
+
+## CI
+
+`.github/workflows/test.yml` runs the server tests against a MongoDB service container and builds the client on every push to `main` and every pull request.
 
 ## Event-day runbook
 
@@ -104,5 +123,6 @@ Headers like `A Player`, `Category B` or `Ladies` also work. Imported names fill
 ## Known limits
 
 - One server instance (the processing lock is in memory). Fine for one event; scaling out would need Mongo transactions.
-- Login rate limit is per IP and in memory (10 tries / 15 min).
+- Login rate limit is per IP and in memory: 10 *failed* tries / 15 min (a successful login resets it). Through Vercel's `/api` rewrite every visitor shares Vercel's IP, so a burst of wrong passwords on the Vercel URL can lock its login for 15 min; log in on the Render URL instead. Already-logged-in hosts are unaffected (12 h cookie).
+- `/api/health` returns 503 while MongoDB is unreachable, so Render's health check and UptimeRobot flag a server that can't draw.
 - Spin length is set at `/admin` (default 6 s). The reel then takes about 3–5 s to slow down and stop.
