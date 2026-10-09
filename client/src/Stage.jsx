@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Announce } from './Audience.jsx';
 import { verify } from './fair.js';
 import * as fx from './fx.js';
 
@@ -9,13 +10,21 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
 
 // Slot-machine reel. Spins until the server's result arrives, then eases out so the winner
 // stops exactly on the centre line. Purely visual: the winner is given, never chosen here.
-function Reel({ names, phase, winner, onLanded }) {
+// Some spins "nearly" stop one name early, then creep onto the winner. Chosen from the draw's id
+// so every screen plays the same tease; it only changes the animation, never the result.
+const TEASE_MS = 1400;
+const isTease = actionId => Boolean(actionId) && parseInt(actionId.replace(/-/g, '').slice(0, 6), 16) % 100 < 40;
+
+function Reel({ names, phase, winner, onLanded, tease = false, onLandingStart }) {
   const n = names.length;
   const start = Math.max(0, names.indexOf(winner));
   const [pos, setPos] = useState(start);
   const motion = useRef({ pos: start });
   const landed = useRef(onLanded);
   landed.current = onLanded;
+  const landingStart = useRef(onLandingStart);
+  landingStart.current = onLandingStart;
+  const [teasing, setTeasing] = useState(false);
 
   useEffect(() => {
     if (phase !== 'spinning' && phase !== 'landing') return;
@@ -30,14 +39,24 @@ function Reel({ names, phase, winner, onLanded }) {
     }
     let plan = null;
     let hold;
+    let teaseTimer;
     if (phase === 'landing') {
       // Travel at least one second's worth of rows, ending on the winner. Duration is set so
       // the ease-out starts at roughly the spinning speed (cubic ease: v0 = 3D/L).
       const base = Math.ceil(m.pos + SPEED);
       const distance = base + mod(target - base, n) - m.pos;
       plan = { from: m.pos, distance, ms: Math.min(5500, Math.max(2500, (3 * distance * 1000) / SPEED)), t0: performance.now() };
+      plan.tease = tease && n > 2 ? 0.55 : 0;
+      plan.total = plan.ms + (plan.tease ? TEASE_MS : 0);
+      landingStart.current?.(plan.total);
+      if (plan.tease) {
+        teaseTimer = setTimeout(() => {
+          setTeasing(true);
+          fx.ohh();
+        }, plan.ms);
+      }
       // A timer, not the frame loop, ends the reveal: frames pause in background tabs.
-      hold = setTimeout(() => landed.current?.(), plan.ms + 500);
+      hold = setTimeout(() => landed.current?.(), plan.total + 500);
     }
     let raf;
     let last = performance.now();
@@ -47,8 +66,17 @@ function Reel({ names, phase, winner, onLanded }) {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       if (plan) {
-        const t = Math.min(1, (now - plan.t0) / plan.ms);
-        m.pos = plan.from + plan.distance * (1 - (1 - t) ** 3);
+        const elapsed = now - plan.t0;
+        const main = plan.distance - plan.tease;
+        if (elapsed < plan.ms) {
+          const t = elapsed / plan.ms;
+          m.pos = plan.from + main * (1 - (1 - t) ** 3);
+        } else {
+          // The tease: stalls just short of the line, then creeps over onto the winner.
+          const t = Math.min(1, (elapsed - plan.ms) / TEASE_MS);
+          const ease = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+          m.pos = plan.from + main + plan.tease * ease;
+        }
       } else {
         m.pos += SPEED * dt;
       }
@@ -60,14 +88,15 @@ function Reel({ names, phase, winner, onLanded }) {
       }
       lastRow = row;
       setPos(m.pos);
-      if (!plan || now - plan.t0 < plan.ms) raf = requestAnimationFrame(tick);
+      if (!plan || now - plan.t0 < plan.total) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(hold);
+      clearTimeout(teaseTimer);
     };
-  }, [phase, names, winner, n]);
+  }, [phase, names, winner, n, tease]);
 
   const shown = phase === 'done' && names.includes(winner) ? names.indexOf(winner) : pos;
   const base = Math.floor(shown);
@@ -83,7 +112,7 @@ function Reel({ names, phase, winner, onLanded }) {
     );
   }
   return (
-    <div className={`machine machine-${phase}`} aria-hidden="true">
+    <div className={`machine machine-${phase}${teasing && phase === 'landing' ? ' machine-tease' : ''}`} aria-hidden="true">
       <Paddle side="left" />
       <div className={`reel reel-${phase}`}>
         <ul>{rows}</ul>
@@ -152,14 +181,34 @@ function FairSeal({ show }) {
   );
 }
 
-// A "pock" every rally beat while the reel spins: the sound of a long rally building suspense.
-function useRally(active) {
+// While the reel spins: the crowd murmur swells, with a steady rally — or, when only a few
+// names are left, a drumroll instead. All stop the moment the result lands.
+function useSpinSounds(show, phase) {
+  const spinning = phase === 'spinning';
+  const active = spinning || phase === 'landing';
+  const few = Boolean(show && show.mode === 'spin' && show.candidates.length <= 3);
+  const id = show?.actionId;
   useEffect(() => {
     if (!active) return;
+    return fx.crowdSwell(9000);
+  }, [active, id]);
+  useEffect(() => {
+    if (!spinning) return;
+    if (few) return fx.drumroll(15000);
     fx.pock();
     const timer = setInterval(fx.pock, 700);
     return () => clearInterval(timer);
-  }, [active]);
+  }, [spinning, few, id]);
+}
+
+// During the slow-down the rally speeds up and ends in a smash exactly as the reel stops.
+function useLandingRally() {
+  const stop = useRef(() => {});
+  useEffect(() => () => stop.current(), []);
+  return useCallback(ms => {
+    stop.current();
+    stop.current = fx.rallyToSmash(ms);
+  }, []);
 }
 
 export const COUNTDOWN = 3;
@@ -189,9 +238,16 @@ function useCountdown(show, spinMs) {
   return count === null || count < 0 ? null : count;
 }
 
-function Countdown({ count }) {
+// The countdown, with every remaining name flashing past behind the number.
+function Countdown({ count, names }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setI(x => x + 1), 110);
+    return () => clearInterval(timer);
+  }, []);
   return (
     <div className="countdown" role="status" aria-live="assertive">
+      {names.length > 0 && <span className="flyby" aria-hidden="true">{names[i % names.length]}</span>}
       <span key={count} className="countdown-num">{count === 0 ? 'Go!' : count}</span>
     </div>
   );
@@ -211,6 +267,7 @@ function useCelebration(show, ref) {
     celebrated.current.add(show.actionId);
     if (show.mode === 'shuffle') fx.deal(show.teamNumbers.length);
     else fx.fanfare();
+    fx.cheer();
     fx.confetti(ref.current);
   }, [show, ref]);
 }
@@ -258,12 +315,37 @@ function Deal({ assignments }) {
   );
 }
 
-export function Stage({ state, show, finish, children, big = false }) {
+// The team's A player leads it: shown as captain while the rest of the team is drawn.
+function Captain({ state, category, team }) {
+  const hasA = state.categories.some(c => c.key === 'A');
+  const name = hasA && category !== 'A' && team ? state.teams[team - 1]?.players.A : null;
+  if (!name) return null;
+  return <p className="captain">🏓 Captain <b>{name}</b></p>;
+}
+
+// When the last category's pick lands, the whole team is complete: show it as one card.
+function TeamComplete({ state, show, winner, team }) {
+  if (show.category !== state.categories.at(-1)?.key) return null;
+  const players = { ...state.teams[team - 1]?.players, [show.category]: winner };
+  return (
+    <div className="team-complete">
+      <p className="team-complete-title">Team {team} complete!</p>
+      <ul>
+        {state.categories.map(c => (
+          <li key={c.key}><span>{c.label}</span><b>{players[c.key] ?? '—'}</b></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function Stage({ state, show, finish, children, big = false, announce = null }) {
   const resultRef = useRef(null);
   const count = useCountdown(show, state?.spinMs ?? 0);
   // While counting down, the reel waits (even if the result already arrived) and then plays on.
   const phase = show && (count !== null ? 'countdown' : show.phase);
-  useRally(phase === 'spinning');
+  useSpinSounds(show, phase);
+  const startLandingRally = useLandingRally();
   useCelebration(show, resultRef);
   const cls = big ? ' stage-big' : '';
 
@@ -299,6 +381,7 @@ export function Stage({ state, show, finish, children, big = false }) {
     const done = show.phase === 'done';
     return (
       <section className={`stage stage-live${done ? ' stage-done' : ''}${cls}`}>
+        <Announce announce={announce} />
         <div className="stage-head">
           <p className="eyebrow">{label(show.category)} draw</p>
           <p className="eyebrow">{done ? show.candidates.length - show.teamNumbers.length : show.candidates.length} left</p>
@@ -306,10 +389,19 @@ export function Stage({ state, show, finish, children, big = false }) {
         <h2 className="stage-title">
           {isShuffle ? `Teams ${first}–${lastTeam}` : <>Team <span className="team-big">{first}</span></>}
         </h2>
+        {!isShuffle && <Captain state={state} category={show.category} team={first} />}
         {!(done && isShuffle) && (
           <div className="machine-wrap">
-            <Reel key={show.actionId} names={show.candidates} phase={phase === 'countdown' ? 'idle' : phase} winner={winner} onLanded={() => finish(show.actionId)} />
-            {phase === 'countdown' && <Countdown count={count} />}
+            <Reel
+              key={show.actionId}
+              names={show.candidates}
+              phase={phase === 'countdown' ? 'idle' : phase}
+              winner={winner}
+              tease={!isShuffle && isTease(show.actionId)}
+              onLandingStart={isShuffle ? undefined : startLandingRally}
+              onLanded={() => finish(show.actionId)}
+            />
+            {phase === 'countdown' && <Countdown count={count} names={show.candidates} />}
           </div>
         )}
         <div className="result" aria-live="polite" ref={resultRef}>
@@ -325,6 +417,7 @@ export function Stage({ state, show, finish, children, big = false }) {
               <span className="badge">→ Team {first}</span>
             </div>
           )}
+          {done && !isShuffle && <TeamComplete state={state} show={show} winner={winner} team={first} />}
           {done && isShuffle && (
             <>
               <p className="result-line"><span className="badge">All {show.teamNumbers.length} teams have their {label(show.category)} player</span></p>
@@ -343,6 +436,7 @@ export function Stage({ state, show, finish, children, big = false }) {
   const last = state.last && state.last.category === state.current ? state.last : null;
   return (
     <section className={`stage${cls}`}>
+      <Announce announce={announce} />
       {state.status === 'COMPLETED' ? (
         <>
           <img className="stage-logo" src="/logo.png" alt="" />
@@ -361,6 +455,7 @@ export function Stage({ state, show, finish, children, big = false }) {
               ? (state.mode === 'shuffle' ? `Teams 1–${state.teamCount}` : <>Up next: Team <span className="team-big">{state.currentTeam}</span></>)
               : `All ${state.teamCount} teams filled`}
           </h2>
+          {state.mode === 'spin' && <Captain state={state} category={state.current} team={state.currentTeam} />}
           {state.remaining.length > 0 && <Reel key={`idle-${state.current}`} names={state.remaining} phase="idle" />}
           <div className="result">
             {last && last.mode === 'spin' ? (

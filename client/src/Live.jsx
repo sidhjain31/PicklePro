@@ -1,3 +1,4 @@
+import { CrowdMeter, FloatingReactions, Predict, ReactionBar, useLeaderboard } from './Audience.jsx';
 import { Board } from './Board.jsx';
 import { Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
@@ -45,16 +46,23 @@ export function Header({ state, connected, children }) {
 }
 
 export function Live() {
-  const { state, connected, show, finish } = useLive();
+  const { state, connected, show, finish, send, onReaction, crowd, announce } = useLive();
+  const board = useLeaderboard(state);
+  const live = state && state.status !== 'DRAFT';
   return (
     <>
       <Header state={state} connected={connected} />
       <ConnectionBanner connected={connected} />
       <Steps state={state} />
-      <main className="layout">
-        <Stage state={state} show={show} finish={finish} />
-        {state && state.status !== 'DRAFT' && <Board state={state} show={show} />}
+      <main className="layout layout-audience">
+        <Stage state={state} show={show} finish={finish} announce={announce}>
+          <CrowdMeter state={state} crowd={crowd} send={send} />
+          <Predict state={state} show={show} board={board} />
+        </Stage>
+        {live && <Board state={state} show={show} />}
       </main>
+      <FloatingReactions onReaction={onReaction} />
+      {live && <ReactionBar send={send} />}
     </>
   );
 }

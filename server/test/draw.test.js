@@ -403,3 +403,88 @@ test('every draw is provably fair: sealed before the spin, verifiable after', as
   const history = (await ok('/admin')).history;
   assert.ok(history.every(h => /^[0-9a-f]{64}$/.test(h.commitment) && /^[0-9a-f]{64}$/.test(h.salt)));
 });
+
+const socketTo = async () => {
+  const s = connect(`http://127.0.0.1:${server.port}`, { transports: ['websocket'] });
+  await new Promise(resolve => s.once('tournament:state', resolve));
+  return s;
+};
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+test('reactions: only the allowed emojis are relayed, and they are rate limited', async t => {
+  const a = await socketTo();
+  const b = await socketTo();
+  t.after(() => { a.close(); b.close(); });
+  const got = [];
+  b.on('reaction', r => got.push(r.emoji));
+  a.emit('reaction', '🔥');
+  a.emit('reaction', '<script>');
+  a.emit('reaction', { emoji: '🔥' });
+  for (let i = 0; i < 10; i++) a.emit('reaction', '👏');
+  await pause(300);
+  assert.equal(got[0], '🔥');
+  assert.ok(!got.includes('<script>'));
+  assert.equal(got.length, 4, 'four per second per screen');
+});
+
+test('crowd spin: taps do nothing until the host enables it, then start exactly one draw', async t => {
+  await freshTournament({ categories: ['WOMEN'], spinMs: 300 });
+  const screens = await Promise.all([1, 2, 3].map(socketTo));
+  t.after(() => screens.forEach(s => s.close()));
+  for (const s of screens) for (let i = 0; i < 5; i++) s.emit('tap');
+  await pause(300);
+  assert.equal((await state()).currentTeam, 1, 'crowd spin is off by default');
+
+  assert.equal((await api('/tournament', { method: 'PATCH', body: { crowdTarget: 2 } })).status, 400);
+  await ok('/tournament', { method: 'PATCH', body: { crowdSpin: true, crowdTarget: 6 } });
+  assert.deepEqual((await state()).crowd, { enabled: true, target: 6 });
+  const fired = new Promise(resolve => screens[0].once('crowd:fired', resolve));
+  // One screen alone can't fill the meter past its own cap, but three together can.
+  for (const s of screens) for (let i = 0; i < 4; i++) s.emit('tap');
+  await fired;
+  await pause(200);
+  const s = await state();
+  assert.ok(s.pending, 'the crowd started the spin');
+  assert.deepEqual(s.pending.teamNumbers, [1]);
+  for (const sc of screens) sc.emit('tap'); // taps during a spin are ignored
+  await pause(500);
+  const after = await state();
+  assert.equal(after.currentTeam, 2);
+  assert.equal(after.remaining.length, 27, 'exactly one pick');
+});
+
+test('predictions: open only for the next spin, scored only after the reveal', async () => {
+  await freshTournament({ categories: ['A', 'WOMEN'], spinMs: 400 });
+  const guess = (body, voterId = 'voter-aaaa-1') => api('/guess', { method: 'POST', auth: false, body: { voterId, nickname: 'Asha', ...body } });
+  assert.equal((await guess({ category: 'A', team: 1, name: 'A Player 1' })).status, 409, 'A is shuffled, no predictions');
+  assert.equal((await spin()).status, 200);
+  await pause(500);
+  await ok('/finalize', { method: 'POST', body: { category: 'A' } });
+
+  assert.equal((await guess({ category: 'WOMEN', team: 2, name: 'WOMEN Player 1' })).status, 409, 'wrong team');
+  assert.equal((await guess({ category: 'WOMEN', team: 1, name: 'Nobody' })).status, 400);
+  assert.equal((await guess({ category: 'WOMEN', team: 1, name: 'WOMEN Player 1', nickname: '' })).status, 400);
+  assert.equal((await api('/guess', { method: 'POST', auth: false, body: { voterId: 'x', nickname: 'a', category: 'WOMEN', team: 1, name: 'WOMEN Player 1' } })).status, 400);
+  // Everyone guesses a different player, so exactly one is right.
+  for (let i = 1; i <= 28; i++) await ok('/guess', { method: 'POST', auth: false, body: { voterId: `voter-${String(i).padStart(4, '0')}`, nickname: `P${i}`, category: 'WOMEN', team: 1, name: `WOMEN Player ${i}` } });
+  // Changing your guess is allowed before the reveal.
+  await ok('/guess', { method: 'POST', auth: false, body: { voterId: 'voter-0001', nickname: 'P1', category: 'WOMEN', team: 1, name: 'WOMEN Player 2' } });
+
+  assert.equal((await spin()).status, 200);
+  let board = await ok('/leaderboard', { auth: false });
+  assert.equal(board.players, 0, 'nothing scored while the result is hidden');
+  // Guesses still accepted during the spin (result is hidden), but not after.
+  await ok('/guess', { method: 'POST', auth: false, body: { voterId: 'voter-late', nickname: 'Late', category: 'WOMEN', team: 1, name: 'WOMEN Player 3' } });
+  await pause(600);
+  assert.equal((await guess({ category: 'WOMEN', team: 1, name: 'WOMEN Player 4' }, 'voter-after')).status, 409);
+
+  // 29 guesses on Team 1: P1..P28 (P1 switched to Player 2) + Late (Player 3).
+  const winner = (await state()).teams[0].players.WOMEN;
+  const named = { 'WOMEN Player 1': 0, 'WOMEN Player 2': 2, 'WOMEN Player 3': 2 }[winner] ?? 1;
+  board = await ok('/leaderboard?voter=voter-0002', { auth: false });
+  assert.equal(board.last.total, 29);
+  assert.equal(board.last.correct, named);
+  assert.equal(board.top.filter(r => r.correct === 1).length, named);
+  assert.ok(board.top.every(r => !('voterId' in r)), 'voter ids stay private');
+  assert.equal(board.me.total, 1);
+});

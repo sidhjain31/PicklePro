@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { CrowdMeter, FloatingReactions } from './Audience.jsx';
+import { downloadGallery } from './gallery.js';
 import { downloadReport } from './report.js';
 import { Board } from './Board.jsx';
 import { ConnectionBanner, Header, Steps } from './Live.jsx';
@@ -70,7 +72,7 @@ function Login({ onLogin }) {
 }
 
 function Dashboard({ onLogout }) {
-  const { state, connected, show, finish } = useLive();
+  const { state, connected, show, finish, send, onReaction, crowd, announce } = useLive();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -128,11 +130,13 @@ function Dashboard({ onLogout }) {
         <>
           <Steps state={state} />
           <main className="layout">
-            <Stage state={state} show={show} finish={finish}>
+            <Stage state={state} show={show} finish={finish} announce={announce}>
+              <CrowdMeter state={state} crowd={crowd} send={send} big />
               <Controls {...ctx} show={show} connected={connected} />
             </Stage>
             <Board state={state} show={show} />
           </main>
+          <FloatingReactions onReaction={onReaction} />
           <section className="admin-extras">
             <UpcomingLists {...ctx} />
             <History history={data.history} />
@@ -151,6 +155,7 @@ function Controls({ state, data, run, busy, show, connected }) {
       <div className="controls">
         <button className="btn btn-spin" disabled={busy} onClick={() => run(() => downloadReport(state))}>Download PDF report</button>
         <div className="controls-row">
+          <button className="btn btn-small" disabled={busy} onClick={() => run(() => downloadGallery(state))}>Teams gallery image</button>
           <a className="btn btn-small" href="/api/export.xlsx">Export Excel</a>
         </div>
       </div>
@@ -198,6 +203,27 @@ function Controls({ state, data, run, busy, show, connected }) {
         <button className="btn btn-small" disabled={busy} onClick={() => run(() => downloadReport(state))}>PDF report</button>
       </div>
       {data.history.length === 0 && <p className="controls-note">Spin results are saved the moment they're drawn.</p>}
+      <CrowdSettings state={state} run={run} busy={busy} />
+    </div>
+  );
+}
+
+// Crowd spin: the audience's taps start the next draw (the server still picks the result).
+function CrowdSettings({ state, run, busy }) {
+  const [target, setTarget] = useState(state.crowd?.target ?? 50);
+  const on = Boolean(state.crowd?.enabled);
+  const save = enabled => run(() => api('/tournament', { method: 'PATCH', body: { crowdSpin: enabled, crowdTarget: Math.round(Number(target)) } }));
+  return (
+    <div className="crowd-settings">
+      <label className="check">
+        <input type="checkbox" checked={on} disabled={busy} onChange={e => save(e.target.checked)} />
+        Crowd spin: audience taps start the next draw
+      </label>
+      <label className="crowd-target">
+        Taps needed
+        <input type="number" min="5" max="1000" value={target} onChange={e => setTarget(e.target.value)} />
+        <button type="button" className="btn btn-small" disabled={busy || Number(target) === state.crowd?.target} onClick={() => save(on)}>Set</button>
+      </label>
     </div>
   );
 }

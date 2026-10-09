@@ -22,6 +22,9 @@ function locked(fn) {
 let io = null;
 export const setIo = server => { io = server; };
 const emit = (event, data) => io?.emit(event, data);
+// Last state sent to screens; crowd taps read it instead of hitting the database per tap.
+let lastPublic = null;
+export const cachedState = () => lastPublic;
 async function broadcast() {
   try {
     emit('tournament:state', await publicState());
@@ -114,7 +117,7 @@ export async function publicState(s) {
   const countOf = c => revealed.filter(e => e.category === c).length;
   const filled = current ? countOf(current) : 0;
   const last = revealed.at(-1);
-  return {
+  return (lastPublic = {
     id: String(t._id),
     name: t.name,
     status: t.status,
@@ -136,7 +139,8 @@ export async function publicState(s) {
       ? { actionId: pending[0].actionId, category: pending[0].category, mode: modeOf(pending[0].category), teamNumbers: pending.map(e => e.teamNumber), commitment: pending[0].commitment ?? null }
       : null,
     last: last ? actionSummary(revealed.filter(e => e.actionId === last.actionId)) : null,
-  };
+    crowd: { enabled: Boolean(t.crowdSpin), target: t.crowdTarget ?? 50 },
+  });
 }
 
 // A category's list can change until its first draw; finalized categories never change.
@@ -210,6 +214,11 @@ export const updateSettings = body => locked(async () => {
     if (!Number.isInteger(body.spinMs) || body.spinMs < 0 || body.spinMs > 30000) fail(400, 'spinMs must be 0–30000');
     t.spinMs = body.spinMs;
   }
+  if (body.crowdSpin !== undefined) t.crowdSpin = Boolean(body.crowdSpin);
+  if (body.crowdTarget !== undefined) {
+    if (!Number.isInteger(body.crowdTarget) || body.crowdTarget < 5 || body.crowdTarget > 1000) fail(400, 'Crowd target must be 5–1000 taps');
+    t.crowdTarget = body.crowdTarget;
+  }
   if (body.categories !== undefined) {
     if (t.status !== 'DRAFT') fail(409, 'Categories are locked once the draw starts');
     const c = body.categories;
@@ -253,7 +262,7 @@ export const savePlayers = ({ lists } = {}) => locked(async () => {
 export const createTournament = ({ name } = {}) => locked(async () => {
   const s = await snapshot();
   requireIdle(s);
-  await Tournament.create({ name: requireName(name), categories: s.t.categories, spinMs: s.t.spinMs });
+  await Tournament.create({ name: requireName(name), categories: s.t.categories, spinMs: s.t.spinMs, crowdTarget: s.t.crowdTarget });
   await broadcast();
 });
 

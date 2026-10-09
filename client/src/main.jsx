@@ -6,6 +6,7 @@ import { Admin } from './Admin.jsx';
 import { Live } from './Live.jsx';
 import { Screen } from './Screen.jsx';
 import './styles.css';
+import './audience.css';
 
 const path = location.pathname;
 const Page = path.startsWith('/admin') ? Admin : path.startsWith('/screen') ? Screen : Live;

@@ -35,15 +35,26 @@ Live team-draw app for the **ICC Pickleball** 28-team doubles tournament. The ho
 - No name may appear twice anywhere in a tournament (case and spaces ignored). Each category needs exactly 28 names before its first draw.
 
 ### What the audience sees
-1. **Countdown** 3 → 2 → 1 → GO! (with beeps) — skipped if spin length < 4 s or the screen joined mid-spin.
-2. **Slot machine**: blue and green pickleball paddles (face, edge guard, wrapped grip) swing, a pickleball rallies, names tick past the yellow line and slow down.
-3. **Winner card** with a "SMASH!" stamp, **confetti** with pickleballs and a fanfare. Category A instead **deals 28 cards** one after another.
-4. Team board updates; the drawn cell stays hidden (`???`) until the reveal.
-5. Sound is off until each screen taps **🔇 Tap for sound** (browser rule). **⛶ Full screen** button on the stage.
+1. **Round walk-out**: when a category starts, a full-stage "NEXT ROUND · Women · One spin per team" card with that category's own jingle.
+2. **Countdown** 3 → 2 → 1 → GO! (with beeps) while every remaining name **flies by** behind the number — skipped if spin length < 4 s or the screen joined mid-spin.
+3. **Slot machine**: pickleball paddles swing, a ball rallies, names tick past the line. Sounds: stadium **crowd swells**, a steady rally — or a **drumroll** when only 3 names are left.
+4. **Slow-down**: the rally **speeds up and ends in a smash** as the reel stops. About 40% of spins **near-miss**: the reel stalls one name short (orange glow + crowd **"OHHH"**) then creeps onto the winner. Chosen from the draw id so every screen plays the same tease; never changes the result.
+5. **Winner card** with "SMASH!", confetti, fanfare and a **crowd cheer**. Category A instead **deals 28 cards**.
+6. **🏓 Captain** line: while Women/B/C are drawn, the team's A player is shown as captain.
+7. **Team complete card**: on the last category's spin, the whole team (all categories) appears as one card.
+8. **Trophy moment**: on Finalize, referee whistle + trophy fanfare + "Women locked in! 🏆" card.
+9. Team board updates; the drawn cell stays hidden (`???`) until the reveal.
+10. Sound is off until each screen taps **🔇 Tap for sound** (browser rule). **⛶ Full screen** button on the stage.
+
+### Audience participation (phones)
+- **Live reactions** 🔥 😂 👏 🎉 😱 ❤️ — bar at the bottom of the phone; **every reaction floats up on every phone and the projector** (server relays them; max 4/sec per phone; only these six emojis).
+- **Predict the pick** — first time: enter a nickname. Then pick who goes to the next team (Women/B/C; not A). Changeable until the reveal; after it, ✅/❌ on the phone. **Leaderboard** (top 10, your rank) on phones; **Top predictors** + "7 of 40 called Team 5 right" on `/screen`. Guesses are stored per tournament; scored only against revealed picks; rate limited per viewer (12/min) with a global cap — never per IP, because a venue shares one Wi-Fi IP.
+- **Crowd spin** (host switch, off by default): phones show a big **👆 Tap to spin for Team N** button and a meter; when the taps reach the target (default 50, settable 5–1000) the server starts the next draw through the normal guarded draw — the server still picks the result. Each phone counts at most 15 taps per round.
+- **Teams gallery image** — host button when the draw is complete: one 1920×1080 PNG with all 28 teams in the ICC theme. Download only; no share/WhatsApp buttons by request.
 
 ### Host page (`/admin`)
 - **Setup** (before start): tournament name, spin length, categories + order, player lists (paste or **Import .xlsx / .csv**), readiness, **Start draw**.
-- **Draw**: big button changes through *Shuffle A players → Finalize A → Spin for Team N → Finalize …*; **Undo last draw**; **Export Excel**; header links to **Audience view** and **Big screen**.
+- **Draw**: big button changes through *Shuffle A players → Finalize A → Spin for Team N → Finalize …*; **Undo last draw**; **Export Excel**; **PDF report**; **Crowd spin** switch + taps needed; header links to **Audience view** and **Big screen**. When complete: **Download PDF report**, **Teams gallery image**, **Export Excel**.
 - Below the draw: edit lists of categories not yet drawn, **Draw history**, **Past tournaments** (export any earlier one), **Start a new tournament**.
 
 ### Spreadsheet import format
@@ -67,7 +78,7 @@ Two sheets: **Final Teams** (Team, one column per category) and **Draw History**
 
 - Vercel rewrites `/api/*` to Render (`client/vercel.json`). Socket.IO connects straight to Render via the build-time env `VITE_SOCKET_URL=https://picklepro-api.onrender.com`.
 - Render also builds and serves the client, so its URL is a full backup site.
-- Socket.IO is **broadcast-only**: the server never acts on anything a client sends over it.
+- Socket.IO clients can send only two things: an emoji `reaction` (whitelisted, rate limited, relayed to everyone) and a crowd-spin `tap` (counted only when the host enabled crowd spin; reaching the target calls the same guarded `draw()` the host uses). Nothing a client sends can choose or change a result.
 
 ### Key files
 | File | What it does |
@@ -85,6 +96,10 @@ Two sheets: **Final Teams** (Team, one column per category) and **Draw History**
 | `client/src/Screen.jsx` | Projector view with picks list and QR code |
 | `client/src/fair.js` | Browser-side SHA-256 verification of each revealed draw |
 | `client/src/report.js` | PDF report (jsPDF + autotable, lazy-loaded) |
+| `client/src/gallery.js` | Teams gallery PNG (canvas) |
+| `client/src/Audience.jsx` | Reactions bar + floating emojis, crowd meter, predictions + leaderboard, round/trophy announcements |
+| `client/src/audience.css` | Styles for the above |
+| `server/src/crowd.js` | Socket reactions + crowd taps, `submitGuess`, `leaderboard` |
 | `client/src/Admin.jsx` | Login, setup, controls, history, archive, new tournament |
 | `client/src/Board.jsx`, `Live.jsx` | Team board; audience page + shared header/steps |
 | `client/src/styles.css` | All styling; palette tokens on `:root` from the ICC logo |
@@ -94,11 +109,13 @@ Two sheets: **Final Teams** (Team, one column per category) and **Draw History**
 - **tournaments** — name, status (`DRAFT`/`LIVE`/`COMPLETED`), teamCount (28), categories (order), currentIndex, spinMs. The **newest document is the active tournament**; older ones are the archive.
 - **players** — tournamentId, category, name, nameKey (lowercase). Unique on (tournamentId, nameKey).
 - **drawevents** — the source of truth: actionId, sequence, category, teamNumber, playerId, playerName, revealAt, voided, commitment, salt (fairness key; only exposed after reveal). Unique on sequence, and (for non-voided) on team-per-category and on player.
+- **guesses** — tournamentId, category, teamNumber, voterId (random id stored on the phone), nickname, playerName. Unique per (tournament, category, team, voter).
+- Tournament also has `crowdSpin` (bool) and `crowdTarget` (5–1000, default 50).
 
 ### API
-Public: `GET /api/health`, `GET /api/state`, `GET /api/auth/me`, `POST /api/auth/login`, `POST /api/auth/logout`.
+Public: `GET /api/health`, `GET /api/state`, `GET /api/auth/me`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/guess`, `GET /api/leaderboard[?voter=<id>]`.
 Host cookie required: `GET /api/admin`, `PATCH /api/tournament`, `POST /api/tournaments`, `GET /api/tournaments`, `PUT /api/players`, `POST /api/players/import`, `POST /api/start`, `POST /api/draw`, `POST /api/undo`, `POST /api/finalize`, `GET /api/export.xlsx[?tournament=<id>]`.
-Socket events (server → clients): `tournament:state`, `draw:spinning`, `draw:revealed`, `draw:undone`, `category:finalized`.
+Socket events (server → clients): `tournament:state`, `draw:spinning`, `draw:revealed`, `draw:undone`, `category:finalized`, `reaction`, `crowd:taps`, `crowd:fired`. Clients → server: `reaction`, `tap`.
 
 ---
 
@@ -131,7 +148,7 @@ npm run build         # client production build
 
 ## 5. Deploying
 
-- **Normal path:** push to `main` on GitHub → Vercel and Render both redeploy automatically.
+- **Normal path:** push to `main` on GitHub → Vercel and Render both redeploy automatically, and CI runs the tests.
 - **Without git (used during development):** from the repo root,
   `vercel deploy --yes --scope sp-tech3 --build-env VITE_SOCKET_URL=https://picklepro-api.onrender.com` → preview link (needs Vercel login as SP TECH),
   then `vercel promote <preview-url> --scope sp-tech3 --yes` → puts it on the main link.
@@ -145,7 +162,6 @@ npm run build         # client production build
 **Before (one-time)**
 - [ ] Know the `ADMIN_PASSWORD` (Render → Environment).
 - [ ] UptimeRobot (free): HTTP monitor on `https://picklepro-api.onrender.com/api/health`, every 5 min — stops the ~1 min cold start.
-- [ ] Push the current code to GitHub (see [Current state](#7-current-state)).
 - [ ] Atlas: database user has **readWrite on `picklepro` only**; strong password.
 
 **Rehearsal (1–2 days before)**
@@ -170,12 +186,11 @@ npm run build         # client production build
 
 ## 7. Current state
 
-**As of 2026-10-09**
-- Production (Vercel main link) runs the latest client, **promoted via CLI** — not yet in GitHub.
-- Production server (Render) runs commit `8a1e840` on `main` — it does **not** have the provably-fair sealing yet (server change; needs git push). The PDF report, paddles and everything else client-side are live.
-- GitHub `main` = `8a1e840`. Local `main` has one unpushed commit `3e9fc01` (CI workflow — GitHub token needs `workflow` scope to push it).
-- **Uncommitted local changes** (owner will commit/push): provably-fair commit–reveal (server + client), PDF report, paddle redesign, new draw UI, countdown, `/screen`, ICC theme + logo/icons, `fx.js`, `Screen.jsx`, `qrcode` dependency, waking-server messages, default categories back to A/Women/B/C (server), new tests, `.gitignore` (`.vercel`), `samples/`, `HANDOVER.md`.
-- Tests: **18/18 pass** locally; client build clean.
+**As of 2026-10-09 (audience round, not yet pushed)**
+- GitHub `main` = `c4cf8ec` — production (Vercel + Render) runs that: provably-fair draw, PDF report, countdown, big screen.
+- **Uncommitted locally:** the whole audience-participation round (reactions, predictions + leaderboard, crowd spin, crowd/rally/drumroll/OHHH/jingle/whistle sounds, near-miss tease, name fly-by, captain line, team-complete card, round/trophy announcements, teams gallery image) + this HANDOVER update. **It needs a git push to go live** — reactions, predictions and crowd spin need the new server (Render deploys only from GitHub). Do not promote the client alone: against the old server the prediction box would show errors.
+- CI runs on every push to `main`. GitHub login on this PC was refreshed so pushes may include workflow files.
+- Tests: **21/21 pass** locally; client build clean; full local run verified in the browser (see change log).
 - Production tournament: status DRAFT, categories A, Women, B, C.
 
 **Working agreement:** the owner does all git commits/pushes at the end. Development is checked via Vercel preview/promoted links.
@@ -188,13 +203,27 @@ npm run build         # client production build
 - Saving a list replaces it non-transactionally (validated first, so failures are unlikely).
 
 ### Ideas not built yet
-Team spotlight cards after each category, host phone remote, read winner names aloud, configurable team count.
+Host phone remote, read winner names aloud (commentator voice), configurable team count.
 
 ---
 
 ## Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-10-09 — Audience round: reactions, predictions, crowd spin, stadium sounds
+- **Sounds** (`fx.js`, all synthesized): crowd swell during the spin, cheer on reveal, rally that speeds up into a smash on the slow-down, per-category walk-out jingle, drumroll when ≤ 3 names remain, crowd "OHHH" on near-miss, referee whistle + trophy fanfare on Finalize, soft pop per reaction.
+- **Live reactions** relayed to every phone and the projector (`server/src/crowd.js`, `Audience.jsx`).
+- **Predict the pick** + leaderboard (`POST /api/guess`, `GET /api/leaderboard`, `Guess` model); guesses saved on the phone so they survive re-renders/refresh.
+- **Crowd spin** host switch + target; taps start the next draw via the guarded `draw()`.
+- **Near-miss tease** (deterministic per draw), **name fly-by** in the countdown, **Captain** line, **Team complete** card, **round / trophy announcements**, **teams gallery PNG** (download only, no WhatsApp).
+- Fixed during testing: guesses vanished when the spin started (component remount) → persisted per tournament; guess rate limit was per IP (would block a whole venue on one Wi-Fi) → per viewer + global cap; leaderboard wording when nobody has scored.
+- Tests 21/21 (new: reaction whitelist + rate limit, crowd spin off-by-default / exactly one draw / per-phone cap, predictions open/closed rules + scoring only after reveal + private voter ids). Browser-verified locally: walk-out, countdown + fly-by, trophy, deal, reactions from a second phone floating on this phone, crowd taps starting a spin, prediction ✅/❌, captain, team-complete card, gallery image; no console errors.
+- **Not yet pushed / not live.**
+
+### 2026-10-09 — Pushed to GitHub (`c4cf8ec`)
+- Committed all work since `8a1e840` and pushed together with the CI commit `3e9fc01`. Old saved GitHub token (no `workflow` scope) was cleared and the owner signed in again via browser.
+- Render redeploy brings the provably-fair sealing live; Vercel rebuilt from GitHub (replaces the CLI-promoted build with identical code).
 
 ### 2026-10-09 — Provably fair draw, PDF report, real paddles
 - **Provably fair:** server seals each draw with SHA-256 over the result + a fresh 256-bit key before the spin (`commitment` sent with `draw:spinning`/pending state), reveals the key afterwards; browsers verify and show ✅ Verified fair with details. Commitment/key stored on `DrawEvent`, shown in admin history data and Excel. New test proves sealing, no early key leak, verification and tamper detection. *(Server part goes live on next git push.)*

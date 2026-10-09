@@ -15,6 +15,9 @@ export const Tournament = model('Tournament', new Schema({
   // Index into `categories` of the category being drawn; everything before it is finalized.
   currentIndex: { type: Number, default: 0 },
   spinMs: { type: Number, default: 6000, min: 0, max: 30000 },
+  // Crowd spin: when on, audience taps (Socket.IO) start the next draw once `crowdTarget` is reached.
+  crowdSpin: { type: Boolean, default: false },
+  crowdTarget: { type: Number, default: 50, min: 5, max: 1000 },
 }, { timestamps: true }));
 
 const playerSchema = new Schema({
@@ -51,3 +54,15 @@ eventSchema.index({ tournamentId: 1, sequence: 1 }, { unique: true });
 eventSchema.index({ tournamentId: 1, category: 1, teamNumber: 1 }, liveOnly);
 eventSchema.index({ playerId: 1 }, liveOnly);
 export const DrawEvent = model('DrawEvent', eventSchema);
+
+// Audience predictions: one guess per viewer per team, changeable until that pick is revealed.
+const guessSchema = new Schema({
+  tournamentId: { type: Schema.Types.ObjectId, required: true },
+  category: { type: String, enum: ALL_CATEGORIES, required: true },
+  teamNumber: { type: Number, required: true },
+  voterId: { type: String, required: true },
+  nickname: { type: String, required: true },
+  playerName: { type: String, required: true },
+}, { timestamps: true });
+guessSchema.index({ tournamentId: 1, category: 1, teamNumber: 1, voterId: 1 }, { unique: true });
+export const Guess = model('Guess', guessSchema);

@@ -7,8 +7,9 @@ import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import { isAdmin, login, loginLimiter, logout, requireAdmin } from './auth.js';
 import * as engine from './draw.js';
+import { attachCrowd, leaderboard, submitGuess } from './crowd.js';
 import { exportWorkbook, parseUpload } from './excel.js';
-import { DrawEvent, Player, Tournament } from './models.js';
+import { DrawEvent, Guess, Player, Tournament } from './models.js';
 
 export function createApp() {
   const app = express();
@@ -25,6 +26,9 @@ export function createApp() {
   app.get('/api/auth/me', (req, res) => res.json({ admin: isAdmin(req) }));
   app.post('/api/auth/login', loginLimiter, login);
   app.post('/api/auth/logout', logout);
+  // Audience predictions: public, rate limited, scored only against revealed picks.
+  app.post('/api/guess', async (req, res) => res.json(await submitGuess(req.body ?? {})));
+  app.get('/api/leaderboard', async (req, res) => res.json(await leaderboard({ voter: typeof req.query.voter === 'string' ? req.query.voter : undefined })));
 
   // Everything below mutates or reveals admin data: cookie required, enforced server-side.
   const admin = express.Router();
@@ -67,10 +71,12 @@ export function createApp() {
 
 export async function start({ port = 4000, mongoUri = process.env.MONGODB_URI } = {}) {
   await mongoose.connect(mongoUri);
-  await Promise.all([Tournament.init(), Player.init(), DrawEvent.init()]);
+  await Promise.all([Tournament.init(), Player.init(), DrawEvent.init(), Guess.init()]);
   const server = createServer(createApp());
-  // Socket.IO is broadcast-only: clients never send anything we act on, so it can't mutate state.
+  // Socket.IO clients can only send emoji reactions (relayed) and crowd-spin taps (which at most
+  // start the next draw through the same guarded draw(), and only when the host enabled it).
   const io = new Server(server, { cors: { origin: true } });
+  attachCrowd(io);
   io.on('connection', async socket => {
     try {
       socket.emit('tournament:state', await engine.publicState());

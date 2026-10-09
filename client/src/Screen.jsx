@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
+import { CrowdMeter, FloatingReactions, LeaderList, useLeaderboard } from './Audience.jsx';
 import { ConnectionBanner } from './Live.jsx';
 import { Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
@@ -7,7 +8,8 @@ import { useLive } from './useLive.js';
 // Projector / TV view at /screen: a giant reel, the current category's picks, and a QR code
 // so the room can follow on their phones. Read-only, like the audience page.
 export function Screen() {
-  const { state, connected, show, finish } = useLive();
+  const { state, connected, show, finish, send, onReaction, crowd, announce } = useLive();
+  const board = useLeaderboard(state);
   const joinUrl = `${location.origin}/`;
   const [qr, setQr] = useState('');
   useEffect(() => {
@@ -57,7 +59,9 @@ export function Screen() {
         )}
       </header>
       <main className="screen-main">
-        <Stage state={state} show={show} finish={finish} big />
+        <Stage state={state} show={show} finish={finish} big announce={announce}>
+          <CrowdMeter state={state} crowd={crowd} send={send} big />
+        </Stage>
         <aside className="screen-side">
           {label && state.status !== 'DRAFT' && (
             <section className="screen-picks">
@@ -72,6 +76,15 @@ export function Screen() {
               </ol>
             </section>
           )}
+          {board?.players > 0 && (
+            <section className="screen-leaders">
+              <h2>🔮 Top predictors</h2>
+              {board.last && board.last.total > 0 && (
+                <p className="screen-leaders-last"><b>{board.last.correct}</b> of {board.last.total} called Team {board.last.team} right</p>
+              )}
+              <LeaderList board={board} limit={5} />
+            </section>
+          )}
           <section className="screen-join">
             {qr && <img src={qr} alt={`QR code for ${joinUrl}`} />}
             <p>Watch on your phone</p>
@@ -79,6 +92,7 @@ export function Screen() {
           </section>
         </aside>
       </main>
+      <FloatingReactions onReaction={onReaction} big />
     </div>
   );
 }
