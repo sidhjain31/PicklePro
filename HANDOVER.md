@@ -47,9 +47,13 @@ Live team-draw app for the **ICC Pickleball** 28-team doubles tournament. The ho
 10. Sound is off until each screen taps **🔇 Tap for sound** (browser rule). **⛶ Full screen** button on the stage.
 
 ### Audience page layout (phones)
-Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) → category steps → stage → **Tap battle** card → **Predict the pick** card → **SP Tech card** (wordmark, "Turning ideas into experiences", green **For IT projects, reach us on WhatsApp** button → chat with **Sidh, +91 90671 27688**, then Sidh Jain / **Pinkesh Valdria** tap-to-call cards) → all teams → floating reaction bar. Contacts live in `client/src/Brand.jsx`. One nickname per phone (asked once) is shared by both games.
+Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) → category steps → stage → **Tap battle** card → **Predict the pick** card → **⭐ Follow your team** card → (games) → **SP Tech card** (wordmark, "Turning ideas into experiences", green **For IT projects, reach us on WhatsApp** button → chat with **Sidh, +91 90671 27688**, then Sidh Jain / **Pinkesh Valdria** tap-to-call cards) → all teams → floating reaction bar. Contacts live in `client/src/Brand.jsx`. One nickname per phone (asked once) is shared by both games.
 
 ### Audience participation (phones)
+- **⭐ Follow your team** (`Follow.jsx`) — type your name (suggestions from all known names, any case). Card shows "Your team · Team N" with every category (your name highlighted, "Drawing now…" / "To be drawn"), a **Show on board** button, and the board card gets a ⭐ Your team tag. When you get drawn: big "🎉 You're in Team N!" pop-up + fanfare + confetti + long buzz; when a teammate joins: "🤝 X joined your team!" + buzz. Pop-ups wait until the reel has landed on that phone (no spoilers) and never fire on page load or when you start following.
+- **🔍 Find a player's team** — search box above "All teams"; matching teams glow green, "Team N" chips jump to them (only drawn players can be found).
+- **Screen stays awake** during a live draw (Screen Wake Lock API) on phones and `/screen`; re-taken when the viewer returns to the tab.
+- **Buzz on every reveal** (`navigator.vibrate`) — works on Android; iPhones' browsers don't allow web vibration.
 - **Live reactions** 🔥 😂 👏 🎉 😱 ❤️ — bar at the bottom of the phone; **every reaction floats up on every phone and the projector** (server relays them; max 4/sec per phone; only these six emojis).
 - **Predict the pick** — card shows "N Women players still pending", the team being predicted and your pick. **Predict Team N** opens the **Pending in <category>** list: every remaining player as a tap-to-pick button (with search). Changeable until the reveal; after it, ✅/❌. Prediction leaderboard on phones; **Top predictors** + "7 of 40 called Team 5 right" on `/screen`. Scored only against revealed picks; rate limited per viewer (12/min) + global cap — never per IP (a venue shares one Wi-Fi IP).
 - **Tap battle / crowd spin** (host switch, off by default): big **TAP to spin Team N** button with meter, "you N" count and this round's 🥇🥈🥉 fastest thumbs. **No per-player cap** — it's a game; only faster than a human thumb (>12 taps/sec per phone) is ignored. When the taps reach the target (default 50, settable 5–1000) the server starts the next draw through the normal guarded draw — the server still picks the result. Named taps add up over the whole tournament on the **Top tappers** leaderboard (`GET /api/tappers`, `TapScore` model, flushed to Mongo every second); anonymous taps still fill the meter. Projector/host meter shows "👑 Fastest thumb".
@@ -214,6 +218,10 @@ Host phone remote, read winner names aloud (commentator voice), configurable tea
 ## Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-10-09 — Follow your team, team search, keep awake, reveal buzz
+- New `client/src/Follow.jsx`: follow-your-team card + toasts, team search, `useWakeLock`; `Board` takes `mine` / `matches`; reveal vibration in `Stage`.
+- Browser-verified locally (phone viewport): follow by lowercase name, ⭐ tag on board, teammate-joined toast only after the reel landed, both vibrations, search highlight + jump, no console errors.
 
 ### 2026-10-09 — SP Tech card moved up, wording, name fix, seal hidden from audience
 - SP Tech card now sits right below the games (above "All teams") with the WhatsApp button first: "For IT projects, reach us on WhatsApp" (prefilled IT-project message to Sidh).

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { CrowdMeter, FloatingReactions, LeaderList, useLeaderboard } from './Audience.jsx';
+import { useWakeLock } from './Follow.jsx';
 import { ConnectionBanner } from './Live.jsx';
 import { Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
@@ -10,6 +11,7 @@ import { useLive } from './useLive.js';
 export function Screen() {
   const { state, connected, show, finish, send, onReaction, crowd, announce } = useLive();
   const board = useLeaderboard(state);
+  useWakeLock(Boolean(state && state.status !== 'COMPLETED'));
   const joinUrl = `${location.origin}/`;
   const [qr, setQr] = useState('');
   useEffect(() => {

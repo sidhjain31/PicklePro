@@ -1,6 +1,7 @@
 import { FloatingReactions, Predict, ReactionBar, TapGame, useIdentity, useLeaderboard } from './Audience.jsx';
 import { BrandCard, CreditStrip } from './Brand.jsx';
 import { Board } from './Board.jsx';
+import { FollowCard, TeamSearch, useFollow, useTeamSearch, useWakeLock } from './Follow.jsx';
 import { Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
 
@@ -51,6 +52,9 @@ export function Live() {
   const board = useLeaderboard(state);
   const identity = useIdentity();
   const live = state && state.status !== 'DRAFT';
+  const follow = useFollow(state, show);
+  const search = useTeamSearch(follow.teams);
+  useWakeLock(state?.status === 'LIVE');
   return (
     <div className="audience">
       <Header state={state} connected={connected} />
@@ -62,6 +66,7 @@ export function Live() {
           <Stage state={state} show={show} finish={finish} announce={announce} />
           {live && (
             <div className="play">
+              <FollowCard state={state} follow={follow} />
               <TapGame state={state} crowd={crowd} send={send} identity={identity} />
               <Predict state={state} show={show} board={board} identity={identity} />
             </div>
@@ -71,7 +76,8 @@ export function Live() {
         {live && (
           <section className="teams-section" aria-label="Teams">
             <h2 className="section-title">All teams</h2>
-            <Board state={state} show={show} />
+            <TeamSearch search={search} />
+            <Board state={state} show={show} mine={follow.team?.number ?? null} matches={search.matches} />
           </section>
         )}
       </main>

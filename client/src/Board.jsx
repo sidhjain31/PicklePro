@@ -1,4 +1,5 @@
-export function Board({ state, show }) {
+// `mine` = the team this phone follows; `matches` = teams found by the name search.
+export function Board({ state, show, mine = null, matches = null }) {
   const animating = show && show.phase !== 'done';
   // Hide the cells of a draw that is still spinning on stage, so the board never spoils it.
   const hidden = animating ? new Set(show.teamNumbers) : null;
@@ -9,7 +10,12 @@ export function Board({ state, show }) {
     <section className="board-wrap" aria-label="Teams">
       <ol className="board">
         {state.teams.map(team => (
-          <li key={team.number} className={team.number === highlight ? 'team current' : 'team'}>
+          <li
+            key={team.number}
+            id={`team-card-${team.number}`}
+            className={['team', team.number === highlight && 'current', team.number === mine && 'mine', matches?.has(team.number) && 'match'].filter(Boolean).join(' ')}
+          >
+            {team.number === mine && <span className="mine-tag">⭐ Your team</span>}
             <span className="team-no">
               <span className="sr-only">Team </span>
               {team.number}

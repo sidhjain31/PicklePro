@@ -268,6 +268,8 @@ function useCelebration(show, ref) {
     if (show.mode === 'shuffle') fx.deal(show.teamNumbers.length);
     else fx.fanfare();
     fx.cheer();
+    // Feel the reveal even with sound off (Android; iPhones don't allow web vibration).
+    navigator.vibrate?.(show.mode === 'shuffle' ? [40, 40, 40, 40, 160] : [50, 40, 140]);
     fx.confetti(ref.current);
   }, [show, ref]);
 }
