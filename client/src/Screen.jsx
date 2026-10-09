@@ -82,7 +82,7 @@ export function Screen() {
               {board.last && board.last.total > 0 && (
                 <p className="screen-leaders-last"><b>{board.last.correct}</b> of {board.last.total} called Team {board.last.team} right</p>
               )}
-              <LeaderList board={board} limit={5} />
+              <LeaderList rows={board.top.map(r => ({ nickname: r.nickname, score: r.correct }))} limit={5} />
             </section>
           )}
           <section className="screen-join">

@@ -66,3 +66,14 @@ const guessSchema = new Schema({
 }, { timestamps: true });
 guessSchema.index({ tournamentId: 1, category: 1, teamNumber: 1, voterId: 1 }, { unique: true });
 export const Guess = model('Guess', guessSchema);
+
+// Tap game: total crowd-spin taps per named viewer for the tournament.
+const tapSchema = new Schema({
+  tournamentId: { type: Schema.Types.ObjectId, required: true },
+  voterId: { type: String, required: true },
+  nickname: { type: String, required: true },
+  taps: { type: Number, default: 0 },
+}, { timestamps: true });
+tapSchema.index({ tournamentId: 1, voterId: 1 }, { unique: true });
+tapSchema.index({ tournamentId: 1, taps: -1 });
+export const TapScore = model('TapScore', tapSchema);

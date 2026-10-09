@@ -1,4 +1,5 @@
-import { CrowdMeter, FloatingReactions, Predict, ReactionBar, useLeaderboard } from './Audience.jsx';
+import { FloatingReactions, Predict, ReactionBar, TapGame, useIdentity, useLeaderboard } from './Audience.jsx';
+import { BrandFooter, CreditStrip } from './Brand.jsx';
 import { Board } from './Board.jsx';
 import { Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
@@ -48,22 +49,35 @@ export function Header({ state, connected, children }) {
 export function Live() {
   const { state, connected, show, finish, send, onReaction, crowd, announce } = useLive();
   const board = useLeaderboard(state);
+  const identity = useIdentity();
   const live = state && state.status !== 'DRAFT';
   return (
-    <>
+    <div className="audience">
       <Header state={state} connected={connected} />
+      <CreditStrip />
       <ConnectionBanner connected={connected} />
       <Steps state={state} />
       <main className="layout layout-audience">
-        <Stage state={state} show={show} finish={finish} announce={announce}>
-          <CrowdMeter state={state} crowd={crowd} send={send} />
-          <Predict state={state} show={show} board={board} />
-        </Stage>
-        {live && <Board state={state} show={show} />}
+        <div className="audience-col">
+          <Stage state={state} show={show} finish={finish} announce={announce} />
+          {live && (
+            <div className="play">
+              <TapGame state={state} crowd={crowd} send={send} identity={identity} />
+              <Predict state={state} show={show} board={board} identity={identity} />
+            </div>
+          )}
+        </div>
+        {live && (
+          <section className="teams-section" aria-label="Teams">
+            <h2 className="section-title">All teams</h2>
+            <Board state={state} show={show} />
+          </section>
+        )}
       </main>
+      <BrandFooter />
       <FloatingReactions onReaction={onReaction} />
       {live && <ReactionBar send={send} />}
-    </>
+    </div>
   );
 }
 

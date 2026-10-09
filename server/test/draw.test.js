@@ -436,21 +436,39 @@ test('crowd spin: taps do nothing until the host enables it, then start exactly 
   assert.equal((await state()).currentTeam, 1, 'crowd spin is off by default');
 
   assert.equal((await api('/tournament', { method: 'PATCH', body: { crowdTarget: 2 } })).status, 400);
-  await ok('/tournament', { method: 'PATCH', body: { crowdSpin: true, crowdTarget: 6 } });
-  assert.deepEqual((await state()).crowd, { enabled: true, target: 6 });
+  await ok('/tournament', { method: 'PATCH', body: { crowdSpin: true, crowdTarget: 10 } });
+  assert.deepEqual((await state()).crowd, { enabled: true, target: 10 });
   const fired = new Promise(resolve => screens[0].once('crowd:fired', resolve));
-  // One screen alone can't fill the meter past its own cap, but three together can.
-  for (const s of screens) for (let i = 0; i < 4; i++) s.emit('tap');
+  const progress = new Promise(resolve => screens[0].once('crowd:taps', resolve));
+  // A tap game: one fast player can fill the meter alone (named taps score on the leaderboard).
+  const asha = { voterId: 'voter-asha-001', nickname: 'Asha' };
+  for (let i = 0; i < 7; i++) screens[1].emit('tap', asha);
+  for (let i = 0; i < 3; i++) screens[2].emit('tap'); // anonymous taps still count toward the meter
+  assert.deepEqual((await progress).top[0], { nickname: 'Asha', taps: 7 });
   await fired;
   await pause(200);
   const s = await state();
   assert.ok(s.pending, 'the crowd started the spin');
   assert.deepEqual(s.pending.teamNumbers, [1]);
-  for (const sc of screens) sc.emit('tap'); // taps during a spin are ignored
+  for (const sc of screens) sc.emit('tap', asha); // taps during a spin are ignored
   await pause(500);
   const after = await state();
   assert.equal(after.currentTeam, 2);
   assert.equal(after.remaining.length, 27, 'exactly one pick');
+
+  // Next round: Bo out-taps Asha and leads the tournament tap leaderboard.
+  const bo = { voterId: 'voter-bo-0001', nickname: 'Bo' };
+  for (let i = 0; i < 9; i++) screens[0].emit('tap', bo);
+  await pause(300);
+  let board = await ok('/tappers?voter=voter-asha-001', { auth: false });
+  assert.deepEqual(board.top.slice(0, 2), [{ nickname: 'Bo', taps: 9 }, { nickname: 'Asha', taps: 7 }]);
+  assert.deepEqual(board.me, { rank: 2, taps: 7 });
+  assert.ok(board.top.every(r => !('voterId' in r)));
+  // Faster than a human thumb is ignored (12 taps/sec per phone).
+  for (let i = 0; i < 40; i++) screens[0].emit('tap', bo);
+  await pause(300);
+  board = await ok('/tappers', { auth: false });
+  assert.ok(board.top[0].taps <= 9 + 12 + 1, `rate limited, got ${board.top[0].taps}`);
 });
 
 test('predictions: open only for the next spin, scored only after the reveal', async () => {

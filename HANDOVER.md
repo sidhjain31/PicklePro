@@ -46,10 +46,13 @@ Live team-draw app for the **ICC Pickleball** 28-team doubles tournament. The ho
 9. Team board updates; the drawn cell stays hidden (`???`) until the reveal.
 10. Sound is off until each screen taps **🔇 Tap for sound** (browser rule). **⛶ Full screen** button on the stage.
 
+### Audience page layout (phones)
+Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) → category steps → stage → **Tap battle** card → **Predict the pick** card → all teams → **SP Tech footer** (wordmark, "Turning ideas into experiences", both contacts as tap-to-call cards, green **WhatsApp** button that opens a chat with **Sidh, +91 90671 27688**) → floating reaction bar. Contacts live in `client/src/Brand.jsx`. One nickname per phone (asked once) is shared by both games.
+
 ### Audience participation (phones)
 - **Live reactions** 🔥 😂 👏 🎉 😱 ❤️ — bar at the bottom of the phone; **every reaction floats up on every phone and the projector** (server relays them; max 4/sec per phone; only these six emojis).
-- **Predict the pick** — first time: enter a nickname. Then pick who goes to the next team (Women/B/C; not A). Changeable until the reveal; after it, ✅/❌ on the phone. **Leaderboard** (top 10, your rank) on phones; **Top predictors** + "7 of 40 called Team 5 right" on `/screen`. Guesses are stored per tournament; scored only against revealed picks; rate limited per viewer (12/min) with a global cap — never per IP, because a venue shares one Wi-Fi IP.
-- **Crowd spin** (host switch, off by default): phones show a big **👆 Tap to spin for Team N** button and a meter; when the taps reach the target (default 50, settable 5–1000) the server starts the next draw through the normal guarded draw — the server still picks the result. Each phone counts at most 15 taps per round.
+- **Predict the pick** — card shows "N Women players still pending", the team being predicted and your pick. **Predict Team N** opens the **Pending in <category>** list: every remaining player as a tap-to-pick button (with search). Changeable until the reveal; after it, ✅/❌. Prediction leaderboard on phones; **Top predictors** + "7 of 40 called Team 5 right" on `/screen`. Scored only against revealed picks; rate limited per viewer (12/min) + global cap — never per IP (a venue shares one Wi-Fi IP).
+- **Tap battle / crowd spin** (host switch, off by default): big **TAP to spin Team N** button with meter, "you N" count and this round's 🥇🥈🥉 fastest thumbs. **No per-player cap** — it's a game; only faster than a human thumb (>12 taps/sec per phone) is ignored. When the taps reach the target (default 50, settable 5–1000) the server starts the next draw through the normal guarded draw — the server still picks the result. Named taps add up over the whole tournament on the **Top tappers** leaderboard (`GET /api/tappers`, `TapScore` model, flushed to Mongo every second); anonymous taps still fill the meter. Projector/host meter shows "👑 Fastest thumb".
 - **Teams gallery image** — host button when the draw is complete: one 1920×1080 PNG with all 28 teams in the ICC theme. Download only; no share/WhatsApp buttons by request.
 
 ### Host page (`/admin`)
@@ -186,9 +189,10 @@ npm run build         # client production build
 
 ## 7. Current state
 
-**As of 2026-10-09 (audience round, not yet pushed)**
-- GitHub `main` = `c4cf8ec` — production (Vercel + Render) runs that: provably-fair draw, PDF report, countdown, big screen.
-- **Uncommitted locally:** the whole audience-participation round (reactions, predictions + leaderboard, crowd spin, crowd/rally/drumroll/OHHH/jingle/whistle sounds, near-miss tease, name fly-by, captain line, team-complete card, round/trophy announcements, teams gallery image) + this HANDOVER update. **It needs a git push to go live** — reactions, predictions and crowd spin need the new server (Render deploys only from GitHub). Do not promote the client alone: against the old server the prediction box would show errors.
+**As of 2026-10-09 (audience round pushed)**
+- GitHub `main` = `78a062a` — pushed; CI passed; Render and Vercel both serve it (verified: `/api/leaderboard` answers directly and through Vercel, Vercel bundle contains the new UI).
+- Production now has everything in this document: provably-fair draw, PDF report, countdown, big screen, reactions, predictions, crowd spin, stadium sounds, teams gallery.
+- Professional audience page + SP Tech branding, tap battle leaderboard and pending-player predictions pushed (see change log).
 - CI runs on every push to `main`. GitHub login on this PC was refreshed so pushes may include workflow files.
 - Tests: **21/21 pass** locally; client build clean; full local run verified in the browser (see change log).
 - Production tournament: status DRAFT, categories A, Women, B, C.
@@ -211,6 +215,12 @@ Host phone remote, read winner names aloud (commentator voice), configurable tea
 
 Newest first. Add an entry for every change.
 
+### 2026-10-09 — Professional audience page, tap battle, pending-player predictions
+- Audience page redesigned: SP Tech credit strip + footer (`Brand.jsx`) with tap-to-call contacts and WhatsApp → Sidh (wa.me/919067127688); play-along cards (`panel-card`), "All teams" section; shared nickname (`useIdentity`).
+- Tap battle: removed the 15-taps-per-round cap; taps now carry the player's nickname; round top-3 live (`crowd:taps.top`), tournament **Top tappers** leaderboard (`/api/tappers`, `TapScore`); human-speed limit 12/sec. Fixed: the final tally was lost when the spin fired.
+- Predictions: dropdown replaced by a **Predict Team N** button opening the **Pending in <category>** list of tap-to-pick buttons with search.
+- Tests 21/21 (crowd test rewritten for the tap game: one player can fill the meter, named vs anonymous taps, round leader, tournament leaderboard + rank, rate limit). Browser-verified locally on a phone viewport.
+
 ### 2026-10-09 — Audience round: reactions, predictions, crowd spin, stadium sounds
 - **Sounds** (`fx.js`, all synthesized): crowd swell during the spin, cheer on reveal, rally that speeds up into a smash on the slow-down, per-category walk-out jingle, drumroll when ≤ 3 names remain, crowd "OHHH" on near-miss, referee whistle + trophy fanfare on Finalize, soft pop per reaction.
 - **Live reactions** relayed to every phone and the projector (`server/src/crowd.js`, `Audience.jsx`).
@@ -219,7 +229,7 @@ Newest first. Add an entry for every change.
 - **Near-miss tease** (deterministic per draw), **name fly-by** in the countdown, **Captain** line, **Team complete** card, **round / trophy announcements**, **teams gallery PNG** (download only, no WhatsApp).
 - Fixed during testing: guesses vanished when the spin started (component remount) → persisted per tournament; guess rate limit was per IP (would block a whole venue on one Wi-Fi) → per viewer + global cap; leaderboard wording when nobody has scored.
 - Tests 21/21 (new: reaction whitelist + rate limit, crowd spin off-by-default / exactly one draw / per-phone cap, predictions open/closed rules + scoring only after reveal + private voter ids). Browser-verified locally: walk-out, countdown + fly-by, trophy, deal, reactions from a second phone floating on this phone, crowd taps starting a spin, prediction ✅/❌, captain, team-complete card, gallery image; no console errors.
-- **Not yet pushed / not live.**
+- Pushed as `78a062a`; CI green; live on Render + Vercel.
 
 ### 2026-10-09 — Pushed to GitHub (`c4cf8ec`)
 - Committed all work since `8a1e840` and pushed together with the CI commit `3e9fc01`. Old saved GitHub token (no `workflow` scope) was cleared and the owner signed in again via browser.
