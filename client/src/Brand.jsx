@@ -1,10 +1,10 @@
 // "Built & developed by SP Tech" credit: a slim strip under the header and a footer card.
 const PEOPLE = [
   { name: 'Sidh Jain', short: 'Sidh', display: '90671 27688', tel: '+919067127688' },
-  { name: 'Pinkesh Valderia', short: 'Pinkesh', display: '96536 72196', tel: '+919653672196' },
+  { name: 'Pinkesh Valdria', short: 'Pinkesh', display: '96536 72196', tel: '+919653672196' },
 ];
 // WhatsApp opens a chat with Sidh.
-const WHATSAPP = `https://wa.me/919067127688?text=${encodeURIComponent('Hi Sidh, I saw the ICC Pickleball live draw by SP Tech and would like to know more.')}`;
+const WHATSAPP = `https://wa.me/919067127688?text=${encodeURIComponent('Hi Sidh, I saw the ICC Pickleball live draw by SP Tech. I have an IT project I would like to discuss.')}`;
 
 function Wordmark({ small = false }) {
   return (
@@ -52,12 +52,17 @@ export function CreditStrip() {
   );
 }
 
-export function BrandFooter() {
+export function BrandCard() {
   return (
-    <footer className="brand-footer">
+    <aside className="brand-footer" aria-label="SP Tech">
       <p className="brand-footer-kicker">Built &amp; developed by</p>
       <Wordmark />
       <p className="brand-tagline">Turning ideas into <em>experiences</em></p>
+      <a className="brand-whatsapp" href={WHATSAPP} target="_blank" rel="noopener noreferrer">
+        <WhatsAppIcon />
+        <span>For IT projects, reach us on WhatsApp</span>
+        <span aria-hidden="true">→</span>
+      </a>
       <div className="brand-people">
         {PEOPLE.map(p => (
           <a key={p.tel} className="brand-person" href={`tel:${p.tel}`}>
@@ -66,11 +71,6 @@ export function BrandFooter() {
           </a>
         ))}
       </div>
-      <a className="brand-whatsapp" href={WHATSAPP} target="_blank" rel="noopener noreferrer">
-        <WhatsAppIcon />
-        <span>For any inquiries, message us on WhatsApp</span>
-        <span aria-hidden="true">→</span>
-      </a>
-    </footer>
+    </aside>
   );
 }

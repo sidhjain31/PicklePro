@@ -29,7 +29,7 @@ Live team-draw app for the **ICC Pickleball** 28-team doubles tournament. The ho
 - A category must be **Finalized** (all 28 filled) before the next one starts. Finalized categories never change.
 - **Undo** removes only the latest spin in the current category; it stays in history as *Undone*.
 - Every random pick is made **on the server** with Node's `crypto.randomInt` (Fisher–Yates for A) — the operating system's cryptographically secure generator, with unbiased (rejection-sampled) ranges. Browsers only animate.
-- **Provably fair (commit–reveal):** when a spin starts the server publishes `commitment = SHA-256("PicklePro|v1|actionId|category|team=name;…|key")` with a fresh 256-bit secret `key`; the key is revealed only after the spin. Every viewer's browser recomputes the hash and shows **✅ Verified fair** (tap for details). Commitment + key for every pick are in the Excel *Draw History*. Needs the server from this change deployed (git push) — until then the seal simply doesn't show.
+- **Provably fair (commit–reveal):** when a spin starts the server publishes `commitment = SHA-256("PicklePro|v1|actionId|category|team=name;…|key")` with a fresh 256-bit secret `key`; the key is revealed only after the spin. The host page recomputes the hash and shows **✅ Verified fair** (tap for details); audience phones and the projector do not show the seal (owner's choice). Commitment + key for every pick are in the Excel *Draw History*. Needs the server from this change deployed (git push) — until then the seal simply doesn't show.
 - Each pick is **saved before it is shown**, hidden from every screen until the spin ends, and survives refresh / reconnect / server restart.
 - Duplicate draws are impossible: one action at a time on the server, stale/double clicks rejected, and unique database indexes as the last guard.
 - No name may appear twice anywhere in a tournament (case and spaces ignored). Each category needs exactly 28 names before its first draw.
@@ -47,7 +47,7 @@ Live team-draw app for the **ICC Pickleball** 28-team doubles tournament. The ho
 10. Sound is off until each screen taps **🔇 Tap for sound** (browser rule). **⛶ Full screen** button on the stage.
 
 ### Audience page layout (phones)
-Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) → category steps → stage → **Tap battle** card → **Predict the pick** card → all teams → **SP Tech footer** (wordmark, "Turning ideas into experiences", both contacts as tap-to-call cards, green **WhatsApp** button that opens a chat with **Sidh, +91 90671 27688**) → floating reaction bar. Contacts live in `client/src/Brand.jsx`. One nickname per phone (asked once) is shared by both games.
+Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) → category steps → stage → **Tap battle** card → **Predict the pick** card → **SP Tech card** (wordmark, "Turning ideas into experiences", green **For IT projects, reach us on WhatsApp** button → chat with **Sidh, +91 90671 27688**, then Sidh Jain / **Pinkesh Valdria** tap-to-call cards) → all teams → floating reaction bar. Contacts live in `client/src/Brand.jsx`. One nickname per phone (asked once) is shared by both games.
 
 ### Audience participation (phones)
 - **Live reactions** 🔥 😂 👏 🎉 😱 ❤️ — bar at the bottom of the phone; **every reaction floats up on every phone and the projector** (server relays them; max 4/sec per phone; only these six emojis).
@@ -214,6 +214,11 @@ Host phone remote, read winner names aloud (commentator voice), configurable tea
 ## Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-10-09 — SP Tech card moved up, wording, name fix, seal hidden from audience
+- SP Tech card now sits right below the games (above "All teams") with the WhatsApp button first: "For IT projects, reach us on WhatsApp" (prefilled IT-project message to Sidh).
+- Name corrected to **Pinkesh Valdria**.
+- "🔒 sealed / ✅ Verified fair" removed from audience phones and `/screen`; still on `/admin` (`Stage showSeal`). Fairness data still in Excel.
 
 ### 2026-10-09 — Professional audience page, tap battle, pending-player predictions
 - Audience page redesigned: SP Tech credit strip + footer (`Brand.jsx`) with tap-to-call contacts and WhatsApp → Sidh (wa.me/919067127688); play-along cards (`panel-card`), "All teams" section; shared nickname (`useIdentity`).

@@ -1,5 +1,5 @@
 import { FloatingReactions, Predict, ReactionBar, TapGame, useIdentity, useLeaderboard } from './Audience.jsx';
-import { BrandFooter, CreditStrip } from './Brand.jsx';
+import { BrandCard, CreditStrip } from './Brand.jsx';
 import { Board } from './Board.jsx';
 import { Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
@@ -66,6 +66,7 @@ export function Live() {
               <Predict state={state} show={show} board={board} identity={identity} />
             </div>
           )}
+          <BrandCard />
         </div>
         {live && (
           <section className="teams-section" aria-label="Teams">
@@ -74,7 +75,6 @@ export function Live() {
           </section>
         )}
       </main>
-      <BrandFooter />
       <FloatingReactions onReaction={onReaction} />
       {live && <ReactionBar send={send} />}
     </div>

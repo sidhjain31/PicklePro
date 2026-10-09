@@ -31,7 +31,7 @@
 .sp-mark-small { font-size: 1.05rem; padding-top: 0.2em; }
 
 .brand-footer {
-  margin: 8px 16px calc(84px + env(safe-area-inset-bottom)); padding: 22px 18px 18px; border-radius: 18px; text-align: center;
+  margin: 0; padding: 20px 16px 16px; border-radius: 16px; text-align: center;
   display: grid; justify-items: center; gap: 10px;
   background:
     radial-gradient(circle at 12% 110%, rgb(108 192 74 / 0.25), transparent 40%),
@@ -39,8 +39,9 @@
     var(--net);
   border: 1px solid rgb(108 192 74 / 0.35);
   box-shadow: 0 12px 30px rgb(0 0 0 / 0.35);
-  max-width: 720px; justify-self: center; width: calc(100% - 32px); align-self: center;
+  width: 100%;
 }
+.audience .layout { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .brand-footer-kicker { color: var(--muted); text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.72rem; }
 .brand-tagline { font-weight: 600; color: var(--line); }
 .brand-tagline em { font-style: normal; color: var(--paddle-green); }

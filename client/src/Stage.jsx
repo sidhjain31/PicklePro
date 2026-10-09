@@ -339,7 +339,8 @@ function TeamComplete({ state, show, winner, team }) {
   );
 }
 
-export function Stage({ state, show, finish, children, big = false, announce = null }) {
+// The fairness seal is for the host (and the Excel audit trail); audience screens hide it.
+export function Stage({ state, show, finish, children, big = false, announce = null, showSeal = false }) {
   const resultRef = useRef(null);
   const count = useCountdown(show, state?.spinMs ?? 0);
   // While counting down, the reel waits (even if the result already arrived) and then plays on.
@@ -425,7 +426,7 @@ export function Stage({ state, show, finish, children, big = false, announce = n
             </>
           )}
         </div>
-        <FairSeal show={show} />
+        {showSeal && <FairSeal show={show} />}
         <StageTools />
         {children}
       </section>

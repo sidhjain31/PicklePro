@@ -130,7 +130,7 @@ function Dashboard({ onLogout }) {
         <>
           <Steps state={state} />
           <main className="layout">
-            <Stage state={state} show={show} finish={finish} announce={announce}>
+            <Stage state={state} show={show} finish={finish} announce={announce} showSeal>
               <CrowdMeter state={state} crowd={crowd} send={send} big />
               <Controls {...ctx} show={show} connected={connected} />
             </Stage>
