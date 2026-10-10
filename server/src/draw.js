@@ -140,6 +140,9 @@ export async function publicState(s) {
       : null,
     last: last ? actionSummary(revealed.filter(e => e.actionId === last.actionId)) : null,
     crowd: { enabled: Boolean(t.crowdSpin), target: t.crowdTarget ?? 50 },
+    // Last few one-by-one picks, newest first, for the audience ticker (revealed only).
+    recent: revealed.filter(e => e.category !== 'A').slice(-5).reverse()
+      .map(e => ({ category: e.category, label: LABELS[e.category], teamNumber: e.teamNumber, name: e.playerName })),
   });
 }
 

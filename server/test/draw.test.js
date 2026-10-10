@@ -506,3 +506,31 @@ test('predictions: open only for the next spin, scored only after the reveal', a
   assert.ok(board.top.every(r => !('voterId' in r)), 'voter ids stay private');
   assert.equal(board.me.total, 1);
 });
+
+test('audience ticker and viewer count', async t => {
+  await freshTournament({ categories: ['A', 'WOMEN'], spinMs: 0 });
+  assert.equal((await spin()).status, 200);
+  await pause(50);
+  assert.deepEqual((await state()).recent, [], 'the A shuffle is not in the ticker');
+  await ok('/finalize', { method: 'POST', body: { category: 'A' } });
+  for (let i = 0; i < 6; i++) {
+    assert.equal((await spin()).status, 200);
+    await pause(30);
+  }
+  const s = await state();
+  assert.equal(s.recent.length, 5);
+  assert.deepEqual(s.recent.map(r => r.teamNumber), [6, 5, 4, 3, 2], 'newest first');
+  assert.equal(s.recent[0].name, s.teams[5].players.WOMEN);
+  assert.equal(s.recent[0].label, 'Women');
+
+  const a = await socketTo();
+  t.after(() => a.close());
+  const counts = [];
+  a.on('viewers', v => counts.push(v.count));
+  const b = await socketTo();
+  await pause(2300);
+  b.close();
+  await pause(2300);
+  assert.ok(counts.includes(2), `saw two viewers: ${counts}`);
+  assert.equal(counts.at(-1), 1, 'drops back after one leaves');
+});

@@ -1,6 +1,8 @@
 import { FloatingReactions, Predict, ReactionBar, TapGame, useIdentity, useLeaderboard } from './Audience.jsx';
 import { BrandCard, CreditStrip } from './Brand.jsx';
+import { useRef } from 'react';
 import { Board } from './Board.jsx';
+import { NowBar, Ticker } from './NowBar.jsx';
 import { FollowCard, TeamSearch, useFollow, useTeamSearch, useWakeLock } from './Follow.jsx';
 import { Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
@@ -29,7 +31,7 @@ export function Steps({ state }) {
   );
 }
 
-export function Header({ state, connected, children }) {
+export function Header({ state, connected, viewers = null, children }) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -41,6 +43,7 @@ export function Header({ state, connected, children }) {
       </div>
       <div className="topbar-right">
         <span className={`live-dot ${connected ? 'on' : 'off'}`}>{connected ? 'Live' : 'Offline'}</span>
+        {connected && viewers > 1 && <span className="viewers" title="People watching now">👀 {viewers} watching</span>}
         {children}
       </div>
     </header>
@@ -48,22 +51,27 @@ export function Header({ state, connected, children }) {
 }
 
 export function Live() {
-  const { state, connected, show, finish, send, onReaction, crowd, announce } = useLive();
+  const { state, connected, show, finish, send, onReaction, crowd, announce, viewers } = useLive();
   const board = useLeaderboard(state);
   const identity = useIdentity();
   const live = state && state.status !== 'DRAFT';
   const follow = useFollow(state, show);
+  const stageRef = useRef(null);
   const search = useTeamSearch(follow.teams);
   useWakeLock(state?.status === 'LIVE');
   return (
     <div className="audience">
-      <Header state={state} connected={connected} />
+      <Header state={state} connected={connected} viewers={viewers} />
       <CreditStrip />
+      <NowBar state={state} show={show} stageRef={stageRef} />
       <ConnectionBanner connected={connected} />
       <Steps state={state} />
       <main className="layout layout-audience">
         <div className="audience-col">
-          <Stage state={state} show={show} finish={finish} announce={announce} />
+          <div ref={stageRef}>
+            <Stage state={state} show={show} finish={finish} announce={announce} />
+          </div>
+          {live && <Ticker state={state} show={show} />}
           {live && (
             <div className="play">
               <FollowCard state={state} follow={follow} />

@@ -78,7 +78,21 @@ export async function start({ port = 4000, mongoUri = process.env.MONGODB_URI } 
   // start the next draw through the same guarded draw(), and only when the host enabled it).
   const io = new Server(server, { cors: { origin: true } });
   const stopCrowd = attachCrowd(io);
+  // Live viewer count: every open screen, sent at most every 2 s when it changes.
+  let lastViewers = -1;
+  let viewersTimer = null;
+  const announceViewers = () => {
+    if (viewersTimer) return;
+    viewersTimer = setTimeout(() => {
+      viewersTimer = null;
+      const n = io.engine.clientsCount;
+      if (n !== lastViewers) io.emit('viewers', { count: (lastViewers = n) });
+    }, 2000);
+  };
   io.on('connection', async socket => {
+    socket.on('disconnect', announceViewers);
+    announceViewers();
+    socket.emit('viewers', { count: io.engine.clientsCount });
     try {
       socket.emit('tournament:state', await engine.publicState());
     } catch (err) {
@@ -92,6 +106,7 @@ export async function start({ port = 4000, mongoUri = process.env.MONGODB_URI } 
     port: server.address().port,
     async close() {
       engine.setIo(null);
+      clearTimeout(viewersTimer);
       await stopCrowd();
       await io.close();
       await mongoose.disconnect();

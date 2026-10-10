@@ -50,6 +50,9 @@ Live team-draw app for the **ICC Pickleball** 28-team doubles tournament. The ho
 Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) → category steps → stage → **Tap battle** card → **Predict the pick** card → **⭐ Follow your team** card → (games) → **SP Tech card** (wordmark, "Turning ideas into experiences", green **For IT projects, reach us on WhatsApp** button → chat with **Sidh, +91 90671 27688**, then Sidh Jain / **Pinkesh Valdria** tap-to-call cards) → all teams → floating reaction bar. Contacts live in `client/src/Brand.jsx`. One nickname per phone (asked once) is shared by both games.
 
 ### Audience participation (phones)
+- **👀 N watching** in the header (all open screens; server `viewers` event, sent at most every 2 s when it changes; hidden when only 1).
+- **Latest picks ticker** under the stage: last 5 one-by-one picks, newest first (`state.recent`, revealed only; a pick still landing on that phone is held back).
+- **Sticky "Now drawing" bar** (`NowBar.jsx`): when the stage scrolls off screen, a slim top bar shows "🎰 Women · Team 7 · spinning…" → "✅ Anya Kumar → Team 7" / "Up next: …"; tap to jump back to the reel.
 - **⭐ Follow your team** (`Follow.jsx`) — type your name (suggestions from all known names, any case). Card shows "Your team · Team N" with every category (your name highlighted, "Drawing now…" / "To be drawn"), a **Show on board** button, and the board card gets a ⭐ Your team tag. When you get drawn: big "🎉 You're in Team N!" pop-up + fanfare + confetti + long buzz; when a teammate joins: "🤝 X joined your team!" + buzz. Pop-ups wait until the reel has landed on that phone (no spoilers) and never fire on page load or when you start following.
 - **🔍 Find a player's team** — search box above "All teams"; matching teams glow green, "Team N" chips jump to them (only drawn players can be found).
 - **Screen stays awake** during a live draw (Screen Wake Lock API) on phones and `/screen`; re-taken when the viewer returns to the tab.
@@ -122,7 +125,7 @@ Two sheets: **Final Teams** (Team, one column per category) and **Draw History**
 ### API
 Public: `GET /api/health`, `GET /api/state`, `GET /api/auth/me`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/guess`, `GET /api/leaderboard[?voter=<id>]`.
 Host cookie required: `GET /api/admin`, `PATCH /api/tournament`, `POST /api/tournaments`, `GET /api/tournaments`, `PUT /api/players`, `POST /api/players/import`, `POST /api/start`, `POST /api/draw`, `POST /api/undo`, `POST /api/finalize`, `GET /api/export.xlsx[?tournament=<id>]`.
-Socket events (server → clients): `tournament:state`, `draw:spinning`, `draw:revealed`, `draw:undone`, `category:finalized`, `reaction`, `crowd:taps`, `crowd:fired`. Clients → server: `reaction`, `tap`.
+Socket events (server → clients): `viewers`, `tournament:state`, `draw:spinning`, `draw:revealed`, `draw:undone`, `category:finalized`, `reaction`, `crowd:taps`, `crowd:fired`. Clients → server: `reaction`, `tap`.
 
 ---
 
@@ -218,6 +221,10 @@ Host phone remote, read winner names aloud (commentator voice), configurable tea
 ## Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-10-11 — Viewer count, latest-picks ticker, sticky now-drawing bar
+- Server: `recent` (last 5 non-A revealed picks) in public state; `viewers` count broadcast. New test (ticker order/exclusion, viewer count up and down) — 22/22.
+- Client: `NowBar.jsx` (Ticker + NowBar), header viewer pill. Browser-verified locally on a phone viewport.
 
 ### 2026-10-09 — Follow your team, team search, keep awake, reveal buzz
 - New `client/src/Follow.jsx`: follow-your-team card + toasts, team search, `useWakeLock`; `Board` takes `mine` / `matches`; reveal vibration in `Stage`.

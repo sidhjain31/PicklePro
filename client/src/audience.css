@@ -207,3 +207,30 @@
 .team.mine { position: relative; border-color: var(--ball); background: linear-gradient(160deg, rgb(244 224 77 / 0.18), var(--net) 55%); }
 .mine-tag { position: absolute; top: -10px; right: 8px; padding: 3px 8px; border-radius: 999px; background: var(--ball); color: var(--net); font: 800 0.7rem/1 var(--body); }
 @media (prefers-reduced-motion: reduce) { .follow-toast { animation: none; } }
+
+/* ---------- Viewer count ---------- */
+.viewers { font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgb(0 0 0 / 0.25); white-space: nowrap; }
+
+/* ---------- Latest picks ticker ---------- */
+.ticker { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--net); border: 1px solid rgb(255 255 255 / 0.12); overflow: hidden; }
+.ticker-label { flex: none; font: 800 0.72rem/1 var(--body); text-transform: uppercase; letter-spacing: 0.12em; color: var(--net); background: var(--ball); padding: 5px 8px; border-radius: 6px; }
+.ticker ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; mask-image: linear-gradient(90deg, #000 85%, transparent); }
+.ticker ol::-webkit-scrollbar { display: none; }
+.ticker li { font-size: 0.88rem; color: var(--muted); }
+.ticker li b { color: var(--ball); margin-right: 2px; }
+.ticker li small { opacity: 0.7; margin-left: 2px; }
+.ticker li.newest { color: var(--line); font-weight: 700; animation: rise 0.5s ease-out both; }
+
+/* ---------- Sticky now-drawing bar ---------- */
+.now-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  padding: max(10px, env(safe-area-inset-top)) 14px 10px; border: 0; border-bottom: 2px solid var(--paddle-green); cursor: pointer; text-align: left;
+  background: rgb(11 31 82 / 0.96); color: var(--line); font: 700 0.95rem/1.2 var(--body); box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
+  animation: slide-down 0.25s ease-out both;
+}
+.now-bar.live { border-bottom-color: var(--ball); }
+.now-bar.live .now-icon { animation: thump 0.8s ease-in-out infinite; }
+.now-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.now-go { font-size: 0.8rem; color: var(--ball); white-space: nowrap; }
+@keyframes slide-down { from { transform: translateY(-100%); } }
+@media (prefers-reduced-motion: reduce) { .now-bar, .now-bar .now-icon, .ticker li.newest { animation: none; } }
