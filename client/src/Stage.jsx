@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Announce } from './Audience.jsx';
 import { verify } from './fair.js';
 import * as fx from './fx.js';
@@ -15,24 +15,42 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
 const TEASE_MS = 1400;
 const isTease = actionId => Boolean(actionId) && parseInt(actionId.replace(/-/g, '').slice(0, 6), 16) % 100 < 40;
 
+// Performance: while the reel moves, React does not re-render. Each frame only sets a GPU
+// transform on the list, and the 7 visible names are rewritten in place when a row passes.
 function Reel({ names, phase, winner, onLanded, tease = false, onLandingStart }) {
   const n = names.length;
   const start = Math.max(0, names.indexOf(winner));
-  const [pos, setPos] = useState(start);
   const motion = useRef({ pos: start });
+  const listRef = useRef(null);
+  const rowRefs = useRef([]);
   const landed = useRef(onLanded);
   landed.current = onLanded;
   const landingStart = useRef(onLandingStart);
   landingStart.current = onLandingStart;
   const [teasing, setTeasing] = useState(false);
 
+  // Draws position `p` straight into the DOM (no React render).
+  const lastBase = useRef(null);
+  const draw = p => {
+    const b = Math.floor(p);
+    if (b !== lastBase.current) {
+      lastBase.current = b;
+      rowRefs.current.forEach((li, i) => {
+        if (li) li.textContent = names[mod(b + i - VISIBLE, n)] ?? '';
+      });
+    }
+    if (listRef.current) listRef.current.style.transform = `translate3d(0, ${-(p - b) * 100}%, 0)`;
+  };
+
   useEffect(() => {
+    lastBase.current = null;
+    draw(phase === 'done' && names.includes(winner) ? names.indexOf(winner) : motion.current.pos);
     if (phase !== 'spinning' && phase !== 'landing') return;
     const m = motion.current;
     const target = names.indexOf(winner);
     if (reducedMotion()) {
       if (phase === 'landing') {
-        setPos((m.pos = target));
+        draw((m.pos = target));
         landed.current?.();
       }
       return;
@@ -87,7 +105,7 @@ function Reel({ names, phase, winner, onLanded, tease = false, onLandingStart })
         lastTick = now;
       }
       lastRow = row;
-      setPos(m.pos);
+      draw(m.pos);
       if (!plan || now - plan.t0 < plan.total) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -96,32 +114,51 @@ function Reel({ names, phase, winner, onLanded, tease = false, onLandingStart })
       clearTimeout(hold);
       clearTimeout(teaseTimer);
     };
-  }, [phase, names, winner, n, tease]);
+  }, [phase, names, winner, n, tease]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const shown = phase === 'done' && names.includes(winner) ? names.indexOf(winner) : pos;
+  // Rows are fresh DOM nodes per phase (key), because the frame loop rewrites their text directly.
+  const shown = phase === 'done' && names.includes(winner) ? names.indexOf(winner) : motion.current.pos;
   const base = Math.floor(shown);
-  const frac = shown - base;
   const rows = [];
   for (let k = -VISIBLE; k <= VISIBLE; k++) {
-    const offset = k - frac;
-    const isCentre = Math.abs(offset) < 0.5;
     rows.push(
-      <li key={k} className={isCentre && phase === 'done' ? 'winner' : undefined} style={{ transform: `translateY(${offset * 100}%)` }}>
+      <li
+        key={`${phase}${k}`}
+        ref={el => { rowRefs.current[k + VISIBLE] = el; }}
+        className={k === 0 && phase === 'done' ? 'winner' : undefined}
+        style={{ transform: `translate3d(0, ${k * 100}%, 0)` }}
+      >
         {names[mod(base + k, n)]}
       </li>,
     );
   }
+  const moving = phase === 'spinning' || phase === 'landing';
   return (
     <div className={`machine machine-${phase}${teasing && phase === 'landing' ? ' machine-tease' : ''}`} aria-hidden="true">
+      {moving && <Rally />}
       <Paddle side="left" />
       <div className={`reel reel-${phase}`}>
-        <ul>{rows}</ul>
+        <ul ref={listRef}>{rows}</ul>
         <span className="pointer pointer-left" />
         <span className="pointer pointer-right" />
       </div>
       <Paddle side="right" />
-      {(phase === 'spinning' || phase === 'landing') && <span className="rally-ball" />}
     </div>
+  );
+}
+
+// The rally ball: horizontal glide (ease-in-out, paddle to paddle) and a separate vertical arc
+// (rise decelerates, fall accelerates) on nested elements, so the path is a smooth parabola.
+// Pure CSS transforms on the compositor; one bounce = 1.4 s, in step with the paddles and sound.
+function Rally() {
+  return (
+    <span className="rally">
+      <span className="rally-x">
+        <span className="rally-y">
+          <span className="rally-ball" />
+        </span>
+      </span>
+    </span>
   );
 }
 
@@ -196,7 +233,7 @@ function useSpinSounds(show, phase) {
     if (!spinning) return;
     if (few) return fx.drumroll(15000);
     fx.pock();
-    const timer = setInterval(fx.pock, 700);
+    const timer = setInterval(fx.pock, 1400);
     return () => clearInterval(timer);
   }, [spinning, few, id]);
 }
@@ -342,7 +379,7 @@ function TeamComplete({ state, show, winner, team }) {
 }
 
 // The fairness seal is for the host (and the Excel audit trail); audience screens hide it.
-export function Stage({ state, show, finish, children, big = false, announce = null, showSeal = false }) {
+function StageView({ state, show, finish, children, big = false, announce = null, showSeal = false }) {
   const resultRef = useRef(null);
   const count = useCountdown(show, state?.spinMs ?? 0);
   // While counting down, the reel waits (even if the result already arrived) and then plays on.
@@ -474,3 +511,6 @@ export function Stage({ state, show, finish, children, big = false, announce = n
     </section>
   );
 }
+
+// Memoised: the stage only re-renders when the draw, the spin or an announcement changes.
+export const Stage = memo(StageView);

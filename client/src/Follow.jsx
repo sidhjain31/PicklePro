@@ -138,7 +138,10 @@ export function useTeamSearch(teams) {
   const found = q.length >= 2
     ? teams.filter(t => Object.values(t.players).some(p => norm(p).includes(q)))
     : [];
-  return { query, setQuery, found, matches: q.length >= 2 ? new Set(found.map(t => t.number)) : null };
+  // Stable Set (same teams -> same object) so the memoised board doesn't re-render while typing.
+  const ids = found.map(t => t.number).join(',');
+  const matches = useMemo(() => (q.length >= 2 ? new Set(ids ? ids.split(',').map(Number) : []) : null), [ids, q.length >= 2]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { query, setQuery, found, matches };
 }
 
 export function TeamSearch({ search }) {

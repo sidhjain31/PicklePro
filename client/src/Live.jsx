@@ -1,5 +1,5 @@
-import { FloatingReactions, Predict, ReactionBar, TapGame, useIdentity, useLeaderboard } from './Audience.jsx';
-import { BrandCard, CreditStrip } from './Brand.jsx';
+import { FloatingReactions, Predict, ReactionBar, useLeaderboard } from './Audience.jsx';
+import { BrandFooter, CreditStrip } from './Brand.jsx';
 import { useRef } from 'react';
 import { Board } from './Board.jsx';
 import { NowBar, Ticker } from './NowBar.jsx';
@@ -51,9 +51,8 @@ export function Header({ state, connected, viewers = null, children }) {
 }
 
 export function Live() {
-  const { state, connected, show, finish, send, onReaction, crowd, announce, viewers } = useLive();
+  const { state, connected, show, finish, send, onReaction, announce, viewers } = useLive();
   const board = useLeaderboard(state);
-  const identity = useIdentity();
   const live = state && state.status !== 'DRAFT';
   const follow = useFollow(state, show);
   const stageRef = useRef(null);
@@ -75,11 +74,9 @@ export function Live() {
           {live && (
             <div className="play">
               <FollowCard state={state} follow={follow} />
-              <TapGame state={state} crowd={crowd} send={send} identity={identity} />
-              <Predict state={state} show={show} board={board} identity={identity} />
+              <Predict state={state} show={show} board={board} />
             </div>
           )}
-          <BrandCard />
         </div>
         {live && (
           <section className="teams-section" aria-label="Teams">
@@ -89,6 +86,7 @@ export function Live() {
           </section>
         )}
       </main>
+      <BrandFooter />
       <FloatingReactions onReaction={onReaction} />
       {live && <ReactionBar send={send} />}
     </div>

@@ -10,19 +10,29 @@
 .layout-audience { padding-bottom: 24px; }
 .teams-section { min-width: 0; }
 
-/* ---------- SP Tech credit ---------- */
+/* ---------- SP Tech: top strip (credit + tagline + WhatsApp) ---------- */
 .credit-strip {
-  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 12px;
-  padding: 8px 16px; background: rgb(11 31 82 / 0.85); border-bottom: 1px solid rgb(108 192 74 / 0.35);
-  font-size: 0.78rem;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px 16px;
+  padding: 10px 16px; background: rgb(11 31 82 / 0.9); border-bottom: 1px solid rgb(108 192 74 / 0.35);
 }
+.credit-id { display: flex; align-items: center; gap: 10px; }
 .credit-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.68rem; }
-.credit-contacts { display: inline-flex; gap: 6px; }
-.credit-chip {
-  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; text-decoration: none;
-  border: 1px solid rgb(108 192 74 / 0.6); color: var(--line); font-weight: 700;
+.credit-tagline { margin: 0; font-weight: 700; color: var(--line); font-size: 0.95rem; text-align: center; }
+.credit-tagline em { font-style: normal; color: var(--paddle-green); }
+.wa-btn {
+  display: inline-grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  min-height: 46px; padding: 10px 16px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 0.95rem;
+  background: #1fb257; color: #fff; border: 2px solid transparent;
+  transition: background-color 0.15s, transform 0.08s; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
 }
-.credit-chip:hover { background: rgb(108 192 74 / 0.15); }
+.wa-btn:hover { background: #17a04c; }
+.wa-btn:active { transform: scale(0.98); background: #138a40; }
+.wa-btn:focus-visible { outline: 3px solid var(--ball); outline-offset: 3px; }
+.wa-arrow { font-size: 1.1rem; }
+@media (max-width: 760px) {
+  .credit-strip { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 8px; padding: 10px 14px 12px; }
+  .wa-btn { width: 100%; }
+}
 
 .sp-mark { position: relative; display: inline-flex; align-items: baseline; gap: 0.18em; font: 900 2.6rem/1 var(--body); letter-spacing: -0.02em; color: #fff; padding-top: 0.25em; }
 .sp-mark b { font-style: italic; font-weight: 900; }
@@ -30,35 +40,23 @@
 .sp-swoosh { position: absolute; left: -0.1em; top: -0.05em; width: 1.6em; height: auto; }
 .sp-mark-small { font-size: 1.05rem; padding-top: 0.2em; }
 
+/* ---------- SP Tech: bottom credit + contacts (after all teams) ---------- */
 .brand-footer {
-  margin: 0; padding: 20px 16px 16px; border-radius: 16px; text-align: center;
-  display: grid; justify-items: center; gap: 10px;
-  background:
-    radial-gradient(circle at 12% 110%, rgb(108 192 74 / 0.25), transparent 40%),
-    radial-gradient(circle at 90% -10%, rgb(31 143 255 / 0.25), transparent 45%),
-    var(--net);
-  border: 1px solid rgb(108 192 74 / 0.35);
-  box-shadow: 0 12px 30px rgb(0 0 0 / 0.35);
-  width: 100%;
+  display: grid; justify-items: center; gap: 12px; text-align: center;
+  margin: 8px auto calc(88px + env(safe-area-inset-bottom)); padding: 22px 16px 18px; width: min(720px, calc(100% - 32px));
+  border-radius: 16px; background: var(--net); border: 1px solid rgb(108 192 74 / 0.3);
 }
-.audience .layout { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
-.brand-footer-kicker { color: var(--muted); text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.72rem; }
-.brand-tagline { font-weight: 600; color: var(--line); }
-.brand-tagline em { font-style: normal; color: var(--paddle-green); }
-.brand-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; width: 100%; margin-top: 4px; }
+.brand-footer-kicker { margin: 0; color: var(--muted); text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.72rem; }
+.brand-people { list-style: none; margin: 4px 0 0; padding: 0; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .brand-person {
-  display: grid; gap: 4px; padding: 12px; border-radius: 12px; text-decoration: none; color: var(--line); text-align: left;
-  background: rgb(255 255 255 / 0.05); border: 1px solid rgb(255 255 255 / 0.14);
+  display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; text-decoration: none; color: var(--line); text-align: left; min-height: 64px;
+  background: rgb(255 255 255 / 0.05); border: 1px solid rgb(255 255 255 / 0.14); transition: border-color 0.15s;
 }
 .brand-person:hover { border-color: var(--paddle-green); }
+.brand-person:focus-visible { outline: 3px solid var(--ball); outline-offset: 2px; }
 .brand-person-name { font-weight: 800; }
 .brand-person-tel { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.brand-whatsapp {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; margin-top: 4px;
-  padding: 12px 16px; border-radius: 12px; text-decoration: none; text-align: left; font-weight: 700;
-  background: linear-gradient(135deg, #25d366, #1aa851); color: #fff; box-shadow: 0 6px 16px rgb(37 211 102 / 0.3);
-}
-.brand-whatsapp:hover { filter: brightness(1.05); }
+@media (max-width: 420px) { .brand-people { grid-template-columns: 1fr; } }
 
 /* ---------- Play-along cards ---------- */
 .panel-card { display: grid; gap: 12px; padding: 14px; border-radius: 16px; background: var(--net); border: 1px solid rgb(255 255 255 / 0.12); box-shadow: 0 8px 20px rgb(0 0 0 / 0.25); }
@@ -72,25 +70,6 @@
 .join p { font-size: 0.9rem; }
 .join-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .join input, .pending-search { font: inherit; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--paddle-green); background: #fff; color: var(--ink); min-width: 0; }
-
-/* Tap battle */
-.crowd { display: grid; gap: 8px; }
-.crowd-bar { height: 12px; border-radius: 999px; background: rgb(255 255 255 / 0.12); overflow: hidden; }
-.crowd-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--paddle-green), var(--ball)); transition: width 0.2s; }
-.crowd-btn {
-  display: grid; justify-items: center; gap: 4px; width: 100%;
-  font: 900 1.5rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.04em; padding: 18px 12px; border: 0; border-radius: 16px;
-  background: var(--ball); color: var(--net); cursor: pointer; box-shadow: 0 6px 0 #b9a51f; touch-action: manipulation; user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.crowd-btn small { font: 700 0.95rem/1 var(--body); text-transform: none; letter-spacing: 0; }
-.crowd-btn:active { transform: translateY(4px) scale(0.99); box-shadow: 0 2px 0 #b9a51f; }
-.round-top { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.round-top li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 8px; background: rgb(255 255 255 / 0.06); }
-.crowd-text { text-align: center; font: 800 1.2rem/1.1 var(--display); text-transform: uppercase; color: var(--ball); }
-.crowd-big .crowd-bar { height: 20px; }
-.crowd-big .crowd-text { font-size: clamp(1.2rem, 2.2vw, 2.2rem); }
-.crowd-leader { text-align: center; color: var(--line); font-weight: 700; }
 
 /* Predictions */
 .predict-current { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgb(255 255 255 / 0.06); }
@@ -172,12 +151,11 @@
 .announce-icon { font-size: clamp(3rem, 9vw, 6rem); letter-spacing: 0 !important; animation: thump 0.8s ease-in-out infinite; }
 @keyframes announce { 0% { opacity: 0; transform: scale(1.15); } 12%, 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
 
-.crowd-settings { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid rgb(255 255 255 / 0.15); font-size: 0.9rem; }
-.crowd-target { display: flex; align-items: center; gap: 8px; }
-.crowd-target input { width: 90px; font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid #ccd; }
+.host-setting { display: grid; gap: 4px; padding-top: 10px; border-top: 1px solid rgb(255 255 255 / 0.15); font-size: 0.9rem; }
 
 @media (prefers-reduced-motion: reduce) {
   .floaters span, .announce-icon { animation: none !important; }
+  .wa-btn, .brand-person { transition: none; }
 }
 
 /* ---------- Follow your team ---------- */
@@ -234,3 +212,15 @@
 .now-go { font-size: 0.8rem; color: var(--ball); white-space: nowrap; }
 @keyframes slide-down { from { transform: translateY(-100%); } }
 @media (prefers-reduced-motion: reduce) { .now-bar, .now-bar .now-icon, .ticker li.newest { animation: none; } }
+
+/* ---------- Prediction feedback ---------- */
+.pending-list button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: transform 0.06s, background-color 0.12s; }
+.pending-list button:active { transform: scale(0.97); background: rgb(255 255 255 / 0.18); }
+.pending-list button.saving { display: flex; align-items: center; justify-content: space-between; gap: 6px; border-color: var(--ball); }
+.pending-list button:disabled:not(.saving) { opacity: 0.55; }
+.spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(1turn); } }
+.predict-saved { color: #c9f1b5; font-weight: 700; }
+.predict-closed-note { margin: 0; color: var(--line); font-weight: 600; }
+.join button, .predict-open { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.join button:active, .predict-open:active { transform: scale(0.98); }

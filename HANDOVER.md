@@ -46,8 +46,13 @@ Live team-draw app for the **ICC Pickleball** 28-team doubles tournament. The ho
 9. Team board updates; the drawn cell stays hidden (`???`) until the reveal.
 10. Sound is off until each screen taps **🔇 Tap for sound** (browser rule). **⛶ Full screen** button on the stage.
 
-### Audience page layout (phones)
-Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) → category steps → stage → **Tap battle** card → **Predict the pick** card → **⭐ Follow your team** card → (games) → **SP Tech card** (wordmark, "Turning ideas into experiences", green **For IT projects, reach us on WhatsApp** button → chat with **Sidh, +91 90671 27688**, then Sidh Jain / **Pinkesh Valdria** tap-to-call cards) → all teams → floating reaction bar. Contacts live in `client/src/Brand.jsx`. One nickname per phone (asked once) is shared by both games.
+### Audience page layout
+1. Header (ICC logo, tournament name, LIVE + 👀 watching).
+2. **SP Tech strip**: "Built & developed by SP Tech" · "Turning Ideas into Experiences" · green **For IT projects, reach us on WhatsApp** button (wa.me/919067127688, prefilled "Hi SP Tech, I would like to enquire about your website and application development services."). One row on wide screens, stacked on phones.
+3. Category steps → stage (team, captain, reel, result) → latest-picks ticker.
+4. ⭐ Follow your team → 🔮 Predict the pick (hidden when the host closes predictions).
+5. All teams (with search).
+6. **Bottom**: "Built & developed by SP Tech" + **Sidh Jain 90671 27688** and **Pinkesh Valdria 96536 72196** call cards (side by side; stacked under 420 px). Contacts appear only here (`client/src/Brand.jsx`).
 
 ### Audience participation (phones)
 - **👀 N watching** in the header (all open screens; server `viewers` event, sent at most every 2 s when it changes; hidden when only 1).
@@ -58,8 +63,8 @@ Header → **SP Tech credit strip** (tap-to-call chips for Sidh and Pinkesh) →
 - **Screen stays awake** during a live draw (Screen Wake Lock API) on phones and `/screen`; re-taken when the viewer returns to the tab.
 - **Buzz on every reveal** (`navigator.vibrate`) — works on Android; iPhones' browsers don't allow web vibration.
 - **Live reactions** 🔥 😂 👏 🎉 😱 ❤️ — bar at the bottom of the phone; **every reaction floats up on every phone and the projector** (server relays them; max 4/sec per phone; only these six emojis).
-- **Predict the pick** — card shows "N Women players still pending", the team being predicted and your pick. **Predict Team N** opens the **Pending in <category>** list: every remaining player as a tap-to-pick button (with search). Changeable until the reveal; after it, ✅/❌. Prediction leaderboard on phones; **Top predictors** + "7 of 40 called Team 5 right" on `/screen`. Scored only against revealed picks; rate limited per viewer (12/min) + global cap — never per IP (a venue shares one Wi-Fi IP).
-- **Tap battle / crowd spin** (host switch, off by default): big **TAP to spin Team N** button with meter, "you N" count and this round's 🥇🥈🥉 fastest thumbs. **No per-player cap** — it's a game; only faster than a human thumb (>12 taps/sec per phone) is ignored. When the taps reach the target (default 50, settable 5–1000) the server starts the next draw through the normal guarded draw — the server still picks the result. Named taps add up over the whole tournament on the **Top tappers** leaderboard (`GET /api/tappers`, `TapScore` model, flushed to Mongo every second); anonymous taps still fill the meter. Projector/host meter shows "👑 Fastest thumb".
+- **Predict the pick** — host switch **Audience predictions open/closed** on `/admin` (saved on the tournament as `predictions`, synced live, enforced by `POST /api/guess` → 409 when closed; records and leaderboard kept; a phone that was mid-pick sees "🔒 Predictions are closed by the host"). Card shows "N Women players still pending", the team being predicted and your pick. **Predict Team N** opens the **Pending in <category>** list: every remaining player as a tap-to-pick button (with search). Changeable until the reveal; after it, ✅/❌. Prediction leaderboard on phones; **Top predictors** + "7 of 40 called Team 5 right" on `/screen`. Scored only against revealed picks; rate limited per viewer (12/min) + global cap — never per IP (a venue shares one Wi-Fi IP).
+- ~~Tap battle / crowd spin~~ — **removed 2026-10-11** (front end, server, `TapScore`, `/api/tappers`). Old description for history: big **TAP to spin Team N** button with meter, "you N" count and this round's 🥇🥈🥉 fastest thumbs. **No per-player cap** — it's a game; only faster than a human thumb (>12 taps/sec per phone) is ignored. When the taps reach the target (default 50, settable 5–1000) the server starts the next draw through the normal guarded draw — the server still picks the result. Named taps add up over the whole tournament on the **Top tappers** leaderboard (`GET /api/tappers`, `TapScore` model, flushed to Mongo every second); anonymous taps still fill the meter. Projector/host meter shows "👑 Fastest thumb".
 - **Teams gallery image** — host button when the draw is complete: one 1920×1080 PNG with all 28 teams in the ICC theme. Download only; no share/WhatsApp buttons by request.
 
 ### Host page (`/admin`)
@@ -221,6 +226,14 @@ Host phone remote, read winner names aloud (commentator voice), configurable tea
 ## Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-10-11 — Audience polish: branding layout, smooth rally, tap game removed, prediction switch, faster taps
+- **Branding**: tagline + WhatsApp moved into the top strip next to the SP Tech credit; developer credit + contact cards moved to the very bottom under all teams; contacts no longer duplicated; WhatsApp message updated; aria-labels, hover/pressed/focus states.
+- **Smooth animation** (root causes fixed): the rally ball was one 5-stop keyframe path with per-segment easing (it decelerated at every corner) → now nested horizontal glide + vertical arc (parabola) on GPU transforms in its own strip above the reel; the reel re-rendered React every frame and blurred the names → now a frame loop writing `translate3d` and row text directly (no React renders while spinning), no blur; paddle swings (2.8 s) and pock sound (1.4 s) synced to the ball; removed paddle drop-shadow filter during the swing. Measured locally: median frame 16.7 ms, p95 16.8 ms, ball ≤ 7 px/frame, never over the names.
+- **Removed** the tap battle / crowd spin entirely (UI, admin settings, socket `tap`, `TapScore`, `/api/tappers`, CSS, tests).
+- **Prediction switch** on `/admin` (server-enforced, persisted, live-synced, records kept) + new test.
+- **Join / pick lag**: nickname state moved inside the prediction card (Join no longer re-renders stage + 28 team cards; 28 ms locally), `Board` and `Stage` memoised, stable search Set, per-name "saving" spinner on the next frame, double-tap guard, "✓ Locked in" only after server confirmation, instant pressed states, `touch-action: manipulation`.
+- Tests 22/22. Browser-verified locally (phone + desktop).
 
 ### 2026-10-11 — Viewer count, latest-picks ticker, sticky now-drawing bar
 - Server: `recent` (last 5 non-A revealed picks) in public state; `viewers` count broadcast. New test (ticker order/exclusion, viewer count up and down) — 22/22.

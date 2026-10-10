@@ -164,11 +164,15 @@ a { color: inherit; }
 }
 .reel::before { top: calc(var(--row) * 2); }
 .reel::after { top: calc(var(--row) * 3 - 3px); }
-.reel ul { list-style: none; margin: 0; padding: 0; transition: filter 0.8s; }
-.reel-spinning ul { filter: blur(1.2px); }
+.reel ul {
+  /* One row tall: the frame loop slides it by a fraction of a row (translate3d %), no blur filter. */
+  list-style: none; margin: 0; padding: 0;
+  position: absolute; top: calc(var(--row) * 2); left: 0; right: 0; height: var(--row);
+  will-change: transform;
+}
 .reel li {
   position: absolute;
-  top: calc(var(--row) * 2);
+  top: 0;
   left: 0;
   right: 0;
   height: var(--row);
@@ -182,7 +186,6 @@ a { color: inherit; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  will-change: transform;
 }
 .reel li.winner { color: var(--ball); }
 .reel-idle li { color: var(--muted); }
@@ -376,13 +379,14 @@ body { background: radial-gradient(ellipse at top, #1a4aa8, var(--court) 45%, va
 
 /* The machine: two paddles hold the reel, like the crossed paddles on the logo. */
 .machine { position: relative; display: grid; grid-template-columns: clamp(30px, 7vw, 52px) 1fr clamp(30px, 7vw, 52px); gap: 10px; align-items: center; }
-.paddle { transform-origin: 50% 92%; width: 100%; height: calc(var(--row) * 3.8); filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.4)); }
+.paddle { transform-origin: 50% 92%; width: 100%; height: calc(var(--row) * 3.8); }
 .paddle-left { transform: rotate(-6deg); }
 .paddle-right { transform: rotate(6deg); }
-.machine-spinning .paddle-left, .machine-landing .paddle-left { animation: swing-l 0.7s ease-in-out infinite; transform-origin: bottom; }
-.machine-spinning .paddle-right, .machine-landing .paddle-right { animation: swing-r 0.7s ease-in-out infinite; transform-origin: bottom; }
-@keyframes swing-l { 0%, 100% { transform: rotate(-6deg); } 15% { transform: rotate(-16deg); } }
-@keyframes swing-r { 0%, 100% { transform: rotate(6deg); } 50% { transform: rotate(6deg); } 65% { transform: rotate(16deg); } }
+/* Paddles swing exactly when the ball reaches them: left at 0 s, right at 1.4 s (2.8 s cycle). */
+.machine-spinning .paddle-left, .machine-landing .paddle-left { animation: swing-l 2.8s linear infinite; }
+.machine-spinning .paddle-right, .machine-landing .paddle-right { animation: swing-r 2.8s linear infinite; }
+@keyframes swing-l { 0% { transform: rotate(-17deg); } 9%, 91% { transform: rotate(-6deg); } 100% { transform: rotate(-17deg); } }
+@keyframes swing-r { 0%, 41% { transform: rotate(6deg); } 50% { transform: rotate(17deg); } 59%, 100% { transform: rotate(6deg); } }
 .reel { border-radius: 10px; background: linear-gradient(var(--net), #10306f 50%, var(--net)); border-block-color: var(--paddle-green); }
 .machine-landing .reel, .machine-spinning .reel { box-shadow: 0 0 0 2px var(--ball), 0 0 24px rgb(244 224 77 / 0.35); }
 .pointer { position: absolute; top: calc(var(--row) * 2.5); width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; z-index: 2;
@@ -390,23 +394,24 @@ body { background: radial-gradient(ellipse at top, #1a4aa8, var(--court) 45%, va
 .pointer-left { left: 4px; }
 .pointer-right { right: 4px; }
 
-/* The rally ball arcs paddle to paddle above the reel while it spins. */
-.rally-ball { position: absolute; top: -26px; left: 0; width: 22px; height: 22px; border-radius: 50%; pointer-events: none; z-index: 3;
+/* The rally ball, in its own strip above the reel (never over the names). The horizontal glide
+   and the vertical arc are separate nested transforms: together a smooth parabola, no corners. */
+.machine-wrap { position: relative; padding-top: var(--rally-h); --rally-h: 34px; --ball-size: 22px; }
+.rally { position: absolute; top: calc(-1 * var(--rally-h)); left: 0; right: 0; height: var(--rally-h); pointer-events: none; z-index: 3; container-type: inline-size; }
+.rally-x { position: absolute; left: 0; bottom: 0; animation: rally-x 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate; will-change: transform; }
+.rally-y { display: block; animation: rally-y 0.7s cubic-bezier(0.33, 1, 0.68, 1) infinite alternate; will-change: transform; }
+.rally-ball {
+  display: block; width: var(--ball-size); height: var(--ball-size); border-radius: 50%;
   background:
     radial-gradient(circle at 30% 30%, var(--net) 0 9%, transparent 10%),
     radial-gradient(circle at 68% 34%, var(--net) 0 9%, transparent 10%),
     radial-gradient(circle at 48% 70%, var(--net) 0 9%, transparent 10%),
     var(--ball);
-  box-shadow: 0 4px 8px rgb(0 0 0 / 0.4);
-  animation: rally 1.4s ease-in-out infinite; }
-@keyframes rally {
-  0% { transform: translate(0, 10px) rotate(0); }
-  25% { transform: translate(calc(25cqw), -22px) rotate(180deg); }
-  50% { transform: translate(calc(100cqw - 22px), 10px) rotate(360deg); }
-  75% { transform: translate(calc(75cqw - 22px), -22px) rotate(540deg); }
-  100% { transform: translate(0, 10px) rotate(720deg); }
+  animation: rally-spin 0.9s linear infinite;
 }
-.machine { container-type: inline-size; }
+@keyframes rally-x { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(calc(100cqw - var(--ball-size)), 0, 0); } }
+@keyframes rally-y { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, calc(var(--ball-size) - var(--rally-h)), 0); } }
+@keyframes rally-spin { to { transform: rotate(1turn); } }
 .suspense { font: 700 1.1rem/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; animation: pulse 1s ease-in-out infinite; }
 
 /* Winner card */
@@ -434,11 +439,11 @@ body { background: radial-gradient(ellipse at top, #1a4aa8, var(--court) 45%, va
 .team.current { box-shadow: 0 0 0 2px var(--ball), 0 0 18px rgb(244 224 77 / 0.35); }
 
 @media (prefers-reduced-motion: reduce) {
-  .rally-ball, .stage-logo, .team-big, .paddle, .suspense { animation: none !important; }
+  .rally, .stage-logo, .team-big, .paddle, .suspense { animation: none !important; }
+  .rally { display: none; }
 }
 
 /* ---------- Countdown ---------- */
-.machine-wrap { position: relative; }
 .countdown { position: absolute; inset: 0; display: grid; place-items: center; z-index: 5; border-radius: 10px;
   background: radial-gradient(circle, rgb(11 31 82 / 0.75), rgb(11 31 82 / 0.92)); }
 .countdown-num { font: 900 calc(var(--row) * 2.6)/1 var(--display); color: var(--ball); text-transform: uppercase;
@@ -463,7 +468,7 @@ body { background: radial-gradient(ellipse at top, #1a4aa8, var(--court) 45%, va
 .stage-big .stage-head .eyebrow { font-size: clamp(0.9rem, 1.3vw, 1.3rem); }
 .stage-big .machine { grid-template-columns: clamp(60px, 6vw, 110px) 1fr clamp(60px, 6vw, 110px); gap: 14px; }
 .stage-big .pointer { width: 28px; height: 28px; margin-top: -14px; }
-.stage-big .rally-ball { width: 34px; height: 34px; top: -40px; }
+.stage-big .machine-wrap { --rally-h: 52px; --ball-size: 34px; }
 .stage-big .winner-name { font-size: clamp(2.6rem, 8vh, 6.5rem); }
 .stage-big .winner-card { padding-block: 1.6vh 1.2vh; }
 .stage-big .winner-card .badge { font-size: clamp(1.4rem, 2.4vw, 2.4rem); }

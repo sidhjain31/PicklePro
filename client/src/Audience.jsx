@@ -76,97 +76,6 @@ export function ReactionBar({ send }) {
   );
 }
 
-// ---------- Crowd spin: the tap game ----------
-
-const roundOf = state => state && `${state.id}:${state.current}:${state.currentTeam}`;
-export const crowdOpen = state => Boolean(state?.crowd?.enabled && state.status === 'LIVE' && state.currentTeam && !state.pending);
-
-// Projector / host view of the meter.
-export function CrowdMeter({ state, crowd }) {
-  if (!crowdOpen(state)) return null;
-  const taps = crowd.round === roundOf(state) ? crowd.taps : 0;
-  const pct = Math.min(100, Math.round((taps / state.crowd.target) * 100));
-  const label = state.mode === 'shuffle' ? 'shuffle' : `spin for Team ${state.currentTeam}`;
-  const leader = crowd.round === roundOf(state) ? crowd.top?.[0] : null;
-  return (
-    <div className="crowd crowd-big">
-      <div className="crowd-bar"><span style={{ width: `${pct}%` }} /></div>
-      <p className="crowd-text">Tap your phones to {label}! <b>{taps}/{state.crowd.target}</b></p>
-      {leader && <p className="crowd-leader">👑 Fastest thumb: <b>{leader.nickname}</b> · {leader.taps} taps</p>}
-    </div>
-  );
-}
-
-function useTapBoard(open, identity, refreshKey) {
-  const [board, setBoard] = useState(null);
-  useEffect(() => {
-    const load = () => api(`/tappers?voter=${encodeURIComponent(identity.voterId)}`).then(setBoard, () => {});
-    load();
-    if (!open) return;
-    const timer = setInterval(load, 4000);
-    return () => clearInterval(timer);
-  }, [open, identity.voterId, refreshKey]);
-  return board;
-}
-
-// Phone view: a big tap button, this round's top thumbs, and the tournament tap leaderboard.
-export function TapGame({ state, crowd, send, identity }) {
-  const open = crowdOpen(state);
-  const round = roundOf(state);
-  const [mine, setMine] = useState({ round: null, n: 0 });
-  const [showBoard, setShowBoard] = useState(false);
-  const board = useTapBoard(open, identity, crowd.fired ? crowd.round : null);
-  if (!state?.crowd?.enabled || state.status !== 'LIVE') return null;
-  const taps = crowd.round === round ? crowd.taps : 0;
-  const myTaps = mine.round === round ? mine.n : 0;
-  const pct = Math.min(100, Math.round((taps / state.crowd.target) * 100));
-  const label = state.mode === 'shuffle' ? 'shuffle' : `spin Team ${state.currentTeam}`;
-  const top = crowd.round === round ? crowd.top ?? [] : [];
-  const tap = () => {
-    send('tap', { voterId: identity.voterId, nickname: identity.nickname });
-    setMine(m => ({ round, n: (m.round === round ? m.n : 0) + 1 }));
-    navigator.vibrate?.(12);
-  };
-
-  return (
-    <section className="panel-card tap-game">
-      <header className="panel-head">
-        <span className="panel-icon">👆</span>
-        <div>
-          <h3>Tap battle</h3>
-          <p>Tap as fast as you can — the crowd starts the spin. Most taps tops the leaderboard.</p>
-        </div>
-      </header>
-      {!identity.nickname ? (
-        <JoinGame identity={identity} prompt="Enter your name to get on the tap leaderboard." />
-      ) : open ? (
-        <>
-          <div className="crowd-bar"><span style={{ width: `${pct}%` }} /></div>
-          <button type="button" className="crowd-btn" onClick={tap}>
-            TAP to {label}
-            <small>{taps}/{state.crowd.target} · you {myTaps}</small>
-          </button>
-          {top.length > 0 && (
-            <ol className="round-top">
-              {top.map((r, i) => <li key={r.nickname + i}><span>{['🥇', '🥈', '🥉'][i]}</span>{r.nickname}<b>{r.taps}</b></li>)}
-            </ol>
-          )}
-        </>
-      ) : (
-        <p className="panel-note">{state.pending ? 'Spinning… get ready for the next round!' : 'Waiting for the next round.'}</p>
-      )}
-      {board?.players > 0 && (
-        <div className="leader">
-          <button type="button" className="leader-toggle" onClick={() => setShowBoard(o => !o)} aria-expanded={showBoard}>
-            🏆 Top tappers{board.me ? ` · you're #${board.me.rank} (${board.me.taps})` : ''} <span>{showBoard ? '▴' : '▾'}</span>
-          </button>
-          {showBoard && <LeaderList rows={board.top.map(r => ({ nickname: r.nickname, score: r.taps }))} />}
-        </div>
-      )}
-    </section>
-  );
-}
-
 // ---------- Predict the pick ----------
 
 export function useLeaderboard(state) {
@@ -179,7 +88,10 @@ export function useLeaderboard(state) {
   return board;
 }
 
-export function Predict({ state, show, board, identity }) {
+// The prediction card owns its own state (nickname, picks, open list), so typing a name or
+// picking a player re-renders only this card, never the stage, reel or team board.
+export function Predict({ state, show, board }) {
+  const identity = useIdentity();
   // "category:team" -> name, kept per tournament on this phone so it survives re-renders and refreshes.
   const guessKey = `team-draw:guesses:${state?.id}`;
   const [mine, setMineState] = useState(() => { try { return JSON.parse(read(guessKey)) ?? {}; } catch { return {}; } });
@@ -192,10 +104,23 @@ export function Predict({ state, show, board, identity }) {
     return next;
   });
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState('');
+  const [pendingName, setPendingName] = useState(null); // the name being saved right now
+  const inFlight = useRef(false); // blocks double taps before React re-renders
   const [openList, setOpenList] = useState(false);
   const [query, setQuery] = useState('');
   const [showBoard, setShowBoard] = useState(false);
+
+  // If the host closes predictions while this phone is mid-pick, say so instead of vanishing.
+  const open = state?.predictions !== false;
+  const wasOpen = useRef(open);
+  const [closedNotice, setClosedNotice] = useState(false);
+  useEffect(() => {
+    if (wasOpen.current && !open && (openList || pendingName)) setClosedNotice(true);
+    if (open) setClosedNotice(false);
+    if (!open) setOpenList(false);
+    wasOpen.current = open;
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const boardView = board?.players > 0 && (
     <div className="leader">
@@ -207,6 +132,16 @@ export function Predict({ state, show, board, identity }) {
   );
 
   if (!state || state.status !== 'LIVE') return null;
+  if (!open) {
+    // Closed: no empty card. Only a slim note (if someone was mid-pick) and the kept leaderboard.
+    if (!closedNotice && !board?.players) return null;
+    return (
+      <section className="panel-card predict predict-closed">
+        {closedNotice && <p className="predict-closed-note" role="status">🔒 Predictions are closed by the host. Your earlier picks still count.</p>}
+        {boardView}
+      </section>
+    );
+  }
   const label = state.categories.find(c => c.key === state.current)?.label;
   const isSpin = state.mode === 'spin';
   // While a pick is spinning, guesses are still for that (hidden) team.
@@ -220,17 +155,23 @@ export function Predict({ state, show, board, identity }) {
   const shown = query ? pool.filter(n => n.toLowerCase().includes(query.toLowerCase())) : pool;
 
   const guess = async name => {
-    setBusy(true);
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPendingName(name);
     setError('');
+    setSaved('');
     try {
+      // Only marked as your pick once the server has confirmed it.
       await api('/guess', { method: 'POST', body: { voterId: identity.voterId, nickname: identity.nickname, category: state.current, team, name } });
       setMine(m => ({ ...m, [key]: name }));
+      setSaved(`✓ Locked in ${name} for Team ${team}`);
       setOpenList(false);
       setQuery('');
     } catch (err) {
       setError(err.message);
     } finally {
-      setBusy(false);
+      inFlight.current = false;
+      setPendingName(null);
     }
   };
 
@@ -259,7 +200,7 @@ export function Predict({ state, show, board, identity }) {
               <span>Team <b>{team}</b> · {label}</span>
               {mine[key] ? <span className="predict-mine">Your pick: <b>{mine[key]}</b></span> : <span className="predict-mine muted">No pick yet</span>}
             </div>
-            <button type="button" className="btn btn-primary predict-open" onClick={() => setOpenList(o => !o)} aria-expanded={openList}>
+            <button type="button" className="btn btn-primary predict-open" onClick={() => { setOpenList(o => !o); setSaved(''); }} aria-expanded={openList}>
               {openList ? 'Close' : mine[key] ? `Change pick for Team ${team}` : `Predict Team ${team}`}
             </button>
             {openList && (
@@ -274,7 +215,15 @@ export function Predict({ state, show, board, identity }) {
                 <ul className="pending-list">
                   {shown.map(n => (
                     <li key={n}>
-                      <button type="button" disabled={busy} className={mine[key] === n ? 'picked' : undefined} onClick={() => guess(n)}>{n}</button>
+                      <button
+                        type="button"
+                        disabled={Boolean(pendingName)}
+                        aria-busy={pendingName === n}
+                        className={[mine[key] === n && 'picked', pendingName === n && 'saving'].filter(Boolean).join(' ') || undefined}
+                        onClick={() => guess(n)}
+                      >
+                        {n}{pendingName === n && <span className="spinner" aria-hidden="true" />}
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -284,6 +233,7 @@ export function Predict({ state, show, board, identity }) {
           </>
         )
       )}
+      {saved && !error && <p className="predict-saved" role="status">{saved}</p>}
       {error && <p className="error" role="alert">{error}</p>}
       {boardView}
     </section>

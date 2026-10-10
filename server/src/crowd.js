@@ -1,15 +1,12 @@
-// Audience participation: emoji reactions, crowd spin taps and pick predictions.
-// None of this can choose or change a result: reactions are only relayed, taps can at most start
-// the next draw (through the normal guarded draw()), and guesses are scored against revealed picks.
+// Audience participation: emoji reactions and pick predictions.
+// Neither can choose or change a result: reactions are only relayed, and guesses are scored
+// against revealed picks only.
 import * as engine from './draw.js';
 import { HttpError } from './draw.js';
-import { Guess, LABELS, TapScore } from './models.js';
+import { Guess, LABELS } from './models.js';
 
 export const REACTIONS = ['🔥', '😂', '👏', '🎉', '😱', '❤️'];
 const REACTIONS_PER_SEC = 4;
-// Tapping is a game: no per-round cap, but faster than a human thumb (~12/s) is ignored.
-const TAPS_PER_SEC = 12;
-const VOTER = /^[\w-]{8,64}$/;
 
 const fail = (status, message) => { throw new HttpError(status, message); };
 
@@ -28,111 +25,14 @@ function limiter(max, ms) {
   };
 }
 
-// Tournament-long tap totals per player: buffered in memory, flushed to Mongo once a second.
-let tapBuffer = new Map();
-async function flushTaps() {
-  if (!tapBuffer.size) return;
-  const batch = tapBuffer;
-  tapBuffer = new Map();
-  try {
-    await TapScore.bulkWrite([...batch.values()].map(b => ({
-      updateOne: {
-        filter: { tournamentId: b.tournamentId, voterId: b.voterId },
-        update: { $inc: { taps: b.n }, $set: { nickname: b.nickname } },
-        upsert: true,
-      },
-    })));
-  } catch (err) {
-    console.error('tap flush failed', err);
-  }
-}
-export const flushTapScores = flushTaps;
-
 export function attachCrowd(io) {
-  let round = null;
-  let taps = 0;
-  let tappers = new Map(); // this round: voterId -> { nickname, taps }
-  let firing = false;
-  let pendingEmit = null;
-  const flusher = setInterval(flushTaps, 1000);
-  flusher.unref();
-  const announce = target => {
-    if (pendingEmit) return;
-    pendingEmit = setTimeout(() => {
-      pendingEmit = null;
-      const top = [...tappers.values()].sort((a, b) => b.taps - a.taps).slice(0, 3);
-      io.emit('crowd:taps', { round, taps, target, top });
-    }, 150);
-  };
-
   io.on('connection', socket => {
     const canReact = limiter(REACTIONS_PER_SEC, 1000);
-    const canTap = limiter(TAPS_PER_SEC, 1000);
-
     socket.on('reaction', emoji => {
       if (typeof emoji !== 'string' || !REACTIONS.includes(emoji) || !canReact(socket.id)) return;
       io.emit('reaction', { emoji });
     });
-
-    socket.on('tap', async who => {
-      const s = engine.cachedState();
-      if (!s?.crowd?.enabled || s.status !== 'LIVE' || s.pending || !s.currentTeam || firing) return;
-      if (!canTap(socket.id)) return;
-      const key = `${s.id}:${s.current}:${s.currentTeam}`;
-      if (key !== round) {
-        round = key;
-        taps = 0;
-        tappers = new Map();
-      }
-      taps += 1;
-      // Named players score on the tap leaderboard; anonymous taps still fill the meter.
-      const voterId = typeof who?.voterId === 'string' && VOTER.test(who.voterId) ? who.voterId : null;
-      const nickname = engine.cleanName(who?.nickname).slice(0, 24);
-      if (voterId && nickname) {
-        const r = tappers.get(voterId) ?? { nickname, taps: 0 };
-        r.nickname = nickname;
-        r.taps += 1;
-        tappers.set(voterId, r);
-        const b = tapBuffer.get(`${s.id}:${voterId}`) ?? { tournamentId: s.id, voterId, nickname, n: 0 };
-        b.nickname = nickname;
-        b.n += 1;
-        tapBuffer.set(`${s.id}:${voterId}`, b);
-      }
-      announce(s.crowd.target);
-      if (taps < s.crowd.target) return;
-      firing = true;
-      // Final tally for the round (who tapped most) goes out before the round resets.
-      clearTimeout(pendingEmit);
-      pendingEmit = null;
-      const top = [...tappers.values()].sort((a, b) => b.taps - a.taps).slice(0, 3);
-      io.emit('crowd:taps', { round, taps, target: s.crowd.target, top });
-      io.emit('crowd:fired', { round, top });
-      try {
-        await engine.draw({ category: s.current, team: s.currentTeam });
-      } catch {
-        // Host spun at the same moment, or the round moved on: the guarded draw refused. Fine.
-      } finally {
-        firing = false;
-        round = null;
-        taps = 0;
-        tappers = new Map();
-      }
-    });
   });
-  return async () => {
-    clearInterval(flusher);
-    await flushTaps();
-  };
-}
-
-// Top tappers for the whole tournament (plus this viewer's rank).
-export async function tapLeaderboard({ voter } = {}) {
-  await flushTaps();
-  const t = await engine.activeTournament();
-  const all = await TapScore.find({ tournamentId: t._id }).sort({ taps: -1, updatedAt: 1 }).lean();
-  const top = all.slice(0, 10).map(r => ({ nickname: r.nickname, taps: r.taps }));
-  const i = voter ? all.findIndex(r => r.voterId === voter) : -1;
-  return { top, me: i >= 0 ? { rank: i + 1, taps: all[i].taps } : null, players: all.length };
 }
 
 // ---------- Predictions ----------
@@ -159,6 +59,8 @@ export async function submitGuess(body = {}) {
   if (!nickname || nickname.length > 24) fail(400, 'Nickname must be 1–24 characters');
   const name = engine.cleanName(body.name);
   const s = await engine.snapshot();
+  // The host can switch predictions off; enforced here, not just hidden in the page.
+  if (s.t.predictions === false) fail(409, 'Predictions are closed by the host');
   const open = nextGuessable(s);
   if (!open) fail(409, 'Predictions are closed right now');
   // Guesses stay open while the reel spins: the result is hidden on the server until the reveal.

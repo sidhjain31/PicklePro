@@ -15,9 +15,8 @@ export const Tournament = model('Tournament', new Schema({
   // Index into `categories` of the category being drawn; everything before it is finalized.
   currentIndex: { type: Number, default: 0 },
   spinMs: { type: Number, default: 6000, min: 0, max: 30000 },
-  // Crowd spin: when on, audience taps (Socket.IO) start the next draw once `crowdTarget` is reached.
-  crowdSpin: { type: Boolean, default: false },
-  crowdTarget: { type: Number, default: 50, min: 5, max: 1000 },
+  // Audience "Predict the pick": the host can switch it off (records are kept).
+  predictions: { type: Boolean, default: true },
 }, { timestamps: true }));
 
 const playerSchema = new Schema({
@@ -66,14 +65,3 @@ const guessSchema = new Schema({
 }, { timestamps: true });
 guessSchema.index({ tournamentId: 1, category: 1, teamNumber: 1, voterId: 1 }, { unique: true });
 export const Guess = model('Guess', guessSchema);
-
-// Tap game: total crowd-spin taps per named viewer for the tournament.
-const tapSchema = new Schema({
-  tournamentId: { type: Schema.Types.ObjectId, required: true },
-  voterId: { type: String, required: true },
-  nickname: { type: String, required: true },
-  taps: { type: Number, default: 0 },
-}, { timestamps: true });
-tapSchema.index({ tournamentId: 1, voterId: 1 }, { unique: true });
-tapSchema.index({ tournamentId: 1, taps: -1 });
-export const TapScore = model('TapScore', tapSchema);

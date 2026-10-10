@@ -1,5 +1,6 @@
+import { memo } from 'react';
 // `mine` = the team this phone follows; `matches` = teams found by the name search.
-export function Board({ state, show, mine = null, matches = null }) {
+export const Board = memo(function Board({ state, show, mine = null, matches = null }) {
   const animating = show && show.phase !== 'done';
   // Hide the cells of a draw that is still spinning on stage, so the board never spoils it.
   const hidden = animating ? new Set(show.teamNumbers) : null;
@@ -39,4 +40,4 @@ export function Board({ state, show, mine = null, matches = null }) {
       </ol>
     </section>
   );
-}
+});

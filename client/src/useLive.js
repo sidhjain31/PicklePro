@@ -22,7 +22,6 @@ export function useLive() {
   const stateRef = useRef(state);
   const socketRef = useRef(null);
   const listeners = useRef(new Set());
-  const [crowd, setCrowd] = useState({ round: null, taps: 0, target: 0, fired: false });
   const [viewers, setViewers] = useState(null);
   // Big on-screen announcements: a category's walk-out, or its trophy moment.
   const [announce, setAnnounce] = useState(null);
@@ -53,9 +52,7 @@ export function useLive() {
     socket.on('draw:undone', () => setShow(null));
     // Every screen sees every reaction: the server relays each one to all connected phones.
     socket.on('reaction', r => listeners.current.forEach(fn => fn(r)));
-    socket.on('crowd:taps', c => setCrowd({ ...c, fired: false }));
     socket.on('viewers', v => setViewers(v.count));
-    socket.on('crowd:fired', c => setCrowd(prev => ({ ...prev, ...c, fired: true })));
     socket.on('category:finalized', ({ category }) => {
       const label = stateRef.current?.categories.find(c => c.key === category)?.label ?? category;
       trophyUntil = Date.now() + 3600;
@@ -105,5 +102,5 @@ export function useLive() {
     return () => listeners.current.delete(fn);
   }, []);
 
-  return { state, connected, show, finish, send, onReaction, crowd, announce, viewers };
+  return { state, connected, show, finish, send, onReaction, announce, viewers };
 }

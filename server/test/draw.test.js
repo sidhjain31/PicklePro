@@ -331,7 +331,7 @@ test('audience sockets cannot change the draw', async () => {
   const before = await state();
   const socket = connect(`http://127.0.0.1:${server.port}`, { transports: ['websocket'] });
   await new Promise(resolve => socket.once('tournament:state', resolve));
-  for (const event of ['draw', 'draw:spinning', 'draw:revealed', 'undo', 'finalize', 'tournament:state']) {
+  for (const event of ['draw', 'draw:spinning', 'draw:revealed', 'undo', 'finalize', 'tournament:state', 'tap']) {
     socket.emit(event, { category: 'WOMEN', team: 1, teams: [], status: 'COMPLETED' });
   }
   await new Promise(resolve => setTimeout(resolve, 200));
@@ -427,48 +427,31 @@ test('reactions: only the allowed emojis are relayed, and they are rate limited'
   assert.equal(got.length, 4, 'four per second per screen');
 });
 
-test('crowd spin: taps do nothing until the host enables it, then start exactly one draw', async t => {
-  await freshTournament({ categories: ['WOMEN'], spinMs: 300 });
-  const screens = await Promise.all([1, 2, 3].map(socketTo));
-  t.after(() => screens.forEach(s => s.close()));
-  for (const s of screens) for (let i = 0; i < 5; i++) s.emit('tap');
-  await pause(300);
-  assert.equal((await state()).currentTeam, 1, 'crowd spin is off by default');
+test('host can switch predictions off and on; records are kept and the server enforces it', async t => {
+  await freshTournament({ categories: ['WOMEN'], spinMs: 0 });
+  const viewer = await socketTo();
+  t.after(() => viewer.close());
+  const g = (name, voterId = 'voter-switch-1') => api('/guess', { method: 'POST', auth: false, body: { voterId, nickname: 'Kim', category: 'WOMEN', team: 1, name } });
+  assert.equal((await state()).predictions, true, 'on by default');
+  await ok('/guess', { method: 'POST', auth: false, body: { voterId: 'voter-switch-1', nickname: 'Kim', category: 'WOMEN', team: 1, name: 'WOMEN Player 1' } });
 
-  assert.equal((await api('/tournament', { method: 'PATCH', body: { crowdTarget: 2 } })).status, 400);
-  await ok('/tournament', { method: 'PATCH', body: { crowdSpin: true, crowdTarget: 10 } });
-  assert.deepEqual((await state()).crowd, { enabled: true, target: 10 });
-  const fired = new Promise(resolve => screens[0].once('crowd:fired', resolve));
-  const progress = new Promise(resolve => screens[0].once('crowd:taps', resolve));
-  // A tap game: one fast player can fill the meter alone (named taps score on the leaderboard).
-  const asha = { voterId: 'voter-asha-001', nickname: 'Asha' };
-  for (let i = 0; i < 7; i++) screens[1].emit('tap', asha);
-  for (let i = 0; i < 3; i++) screens[2].emit('tap'); // anonymous taps still count toward the meter
-  assert.deepEqual((await progress).top[0], { nickname: 'Asha', taps: 7 });
-  await fired;
-  await pause(200);
-  const s = await state();
-  assert.ok(s.pending, 'the crowd started the spin');
-  assert.deepEqual(s.pending.teamNumbers, [1]);
-  for (const sc of screens) sc.emit('tap', asha); // taps during a spin are ignored
-  await pause(500);
-  const after = await state();
-  assert.equal(after.currentTeam, 2);
-  assert.equal(after.remaining.length, 27, 'exactly one pick');
+  assert.equal((await api('/tournament', { method: 'PATCH', body: { predictions: 'no' } })).status, 400);
+  assert.equal((await api('/tournament', { method: 'PATCH', body: { predictions: false }, auth: false })).status, 401);
+  const synced = new Promise(resolve => viewer.on('tournament:state', s => s.predictions === false && resolve()));
+  await ok('/tournament', { method: 'PATCH', body: { predictions: false } });
+  await synced; // every screen learns about it in real time
+  assert.equal((await state()).predictions, false);
+  const blocked = await g('WOMEN Player 2');
+  assert.equal(blocked.status, 409);
+  assert.match(blocked.body.error, /closed by the host/);
+  // Existing guesses survive: after the reveal they still score.
+  assert.equal((await spin()).status, 200);
+  await pause(50);
+  const board = await ok('/leaderboard?voter=voter-switch-1', { auth: false });
+  assert.equal(board.me.total, 1);
 
-  // Next round: Bo out-taps Asha and leads the tournament tap leaderboard.
-  const bo = { voterId: 'voter-bo-0001', nickname: 'Bo' };
-  for (let i = 0; i < 9; i++) screens[0].emit('tap', bo);
-  await pause(300);
-  let board = await ok('/tappers?voter=voter-asha-001', { auth: false });
-  assert.deepEqual(board.top.slice(0, 2), [{ nickname: 'Bo', taps: 9 }, { nickname: 'Asha', taps: 7 }]);
-  assert.deepEqual(board.me, { rank: 2, taps: 7 });
-  assert.ok(board.top.every(r => !('voterId' in r)));
-  // Faster than a human thumb is ignored (12 taps/sec per phone).
-  for (let i = 0; i < 40; i++) screens[0].emit('tap', bo);
-  await pause(300);
-  board = await ok('/tappers', { auth: false });
-  assert.ok(board.top[0].taps <= 9 + 12 + 1, `rate limited, got ${board.top[0].taps}`);
+  await ok('/tournament', { method: 'PATCH', body: { predictions: true } });
+  assert.equal((await api('/guess', { method: 'POST', auth: false, body: { voterId: 'voter-switch-1', nickname: 'Kim', category: 'WOMEN', team: 2, name: (await state()).remaining[0] } })).status, 200);
 });
 
 test('predictions: open only for the next spin, scored only after the reveal', async () => {

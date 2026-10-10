@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { CrowdMeter, FloatingReactions, LeaderList, useLeaderboard } from './Audience.jsx';
+import { FloatingReactions, LeaderList, useLeaderboard } from './Audience.jsx';
 import { useWakeLock } from './Follow.jsx';
 import { ConnectionBanner } from './Live.jsx';
 import { Stage } from './Stage.jsx';
@@ -9,7 +9,7 @@ import { useLive } from './useLive.js';
 // Projector / TV view at /screen: a giant reel, the current category's picks, and a QR code
 // so the room can follow on their phones. Read-only, like the audience page.
 export function Screen() {
-  const { state, connected, show, finish, send, onReaction, crowd, announce } = useLive();
+  const { state, connected, show, finish, onReaction, announce } = useLive();
   const board = useLeaderboard(state);
   useWakeLock(Boolean(state && state.status !== 'COMPLETED'));
   const joinUrl = `${location.origin}/`;
@@ -61,9 +61,7 @@ export function Screen() {
         )}
       </header>
       <main className="screen-main">
-        <Stage state={state} show={show} finish={finish} big announce={announce}>
-          <CrowdMeter state={state} crowd={crowd} send={send} big />
-        </Stage>
+        <Stage state={state} show={show} finish={finish} big announce={announce} />
         <aside className="screen-side">
           {label && state.status !== 'DRAFT' && (
             <section className="screen-picks">
