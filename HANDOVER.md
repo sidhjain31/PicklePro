@@ -481,8 +481,8 @@ npm run build         # client production build (client/dist)
 ## 13. Current state, what next, limits
 
 **As of 2026-11-16 (night)**
-- `main` = `6851f8b` (plus this handover rewrite + `tools/` if committed). Render and Vercel production serve it; verified live: main link = match draw (*Coming up*), `/api/fixtures/state` 200 via Vercel, live socket receives `cup:state`, auction under `/auction`.
-- **Production match draw is empty** (fresh cup, 0 teams): the host must **Load ICC Season 2 teams → Save** for Main and Kids, rehearse, then Restart.
+- `main` = `6d12e02` (+ a docs-only commit). Render and Vercel production serve it; verified live: main link = match draw, `/api/fixtures/state` 200 via Vercel, live socket receives `cup:state`, native-resolution 3D + 640 px logos served, auction under `/auction`.
+- **Production data right now:** Main = 28 Season 2 teams loaded by the owner, arena open, **1 test match drawn** → press **↺ Restart draw** before the real event. Kids = empty → **Load ICC Season 2 teams → Save** in Kids too.
 - Local laptop database has Season 2 teams loaded in Main and Kids (setup) from the rehearsals.
 - Tests 1040/1040; production build clean.
 - **Sharpness fix** (native resolution on every screen + edge smoothing, no false quality drops, full-screen resize, 640 px logos) built and checked locally (phone view renders 2:1 on a 2× screen, TV view 1:1); needs the owner's iPhone and the real TV to confirm once deployed.
@@ -510,6 +510,7 @@ npm run build         # client production build (client/dist)
 - **`vercel deploy` exit code** may look like a failure if a following command fails; read the JSON (`"readyState": "READY"`).
 - **Vercel git auto-deploy** stopped once (2026-10-12) and works again since 2026-11-16 — after a push, confirm with `npx vercel ls pickle-pro --scope sp-tech3`; if no new production build appears, run `npx vercel deploy --prod --yes --scope sp-tech3`.
 - **Do not pass `--test-timeout`** to the whole test run (Node 22 applies it per file).
+- **Docs-only commits:** put `[skip render]` in the commit message so Render doesn't redeploy (= restart) the server for nothing — useful while the owner is testing or near an event. Vercel still rebuilds the client (harmless).
 - **Sites that block scripts** (Pixabay, Google Drive): ask the owner, then use their Chrome (Claude in Chrome).
 - **Credentials:** never echo `ADMIN_PASSWORD`/session tokens; the tool safety layer blocks reading saved tokens — use scripts that log in themselves.
 - **`core.js` is imported by the server** via a relative path into `client/src/cup/` — keep it free of browser-only APIs and imports.
@@ -527,7 +528,7 @@ Newest first. Add an entry for every change.
 - **3D blurry on phones** (owner's iPhone screenshot): phones were capped at 1.3× on 3× screens, edge smoothing was off on phones, and the auto-quality treated a 30 fps cap (Low Power Mode / WhatsApp browser) as overload and fell to 0.75×. Now `stage3d.js`: MSAA always on; phones 2× → 1.6× → 1.3× (floor), computers 1.75× + bloom → 1.5× → 1.25× → 1×; step down only when frames average > 42 ms for 2 s; crest name labels 15 % larger. `SmashArena.jsx`: explicit `stage.resize()` when the full-screen show starts/ends (the picture was a stretched copy of the inline size). Checked locally at 375×812: buffer exactly 2× inline and full screen, names readable.
 - **HANDOVER.md rewritten** as a complete handover for a new developer/Claude account: start-here, project, the owner's working rules, links/accounts, architecture + file map + data + API, both modules in depth, every decision with its reason, every problem hit and its fix, testing, running, deploying, event-day checklists, current state, gotchas; change log kept in full.
 - **`tools/`** added: `draw-day/` (rehearsal, crowd load, mid-show restart — portable paths, `PICKLEPRO_API` / `PICKLEPRO_SOCKET` / `ADMIN_PASSWORD` env), `assets/` (Season 2 data, logo processing/colours, checkerboard cleaner), `audio/` (sound processing). Re-run once from the repo: kids rehearsal all checks passed.
-- Preview https://pickle-2d2nxunwe-sp-tech3.vercel.app (SP TECH login). Not pushed yet (owner decides); production still has the blurry phone render until then.
+- Preview https://pickle-2d2nxunwe-sp-tech3.vercel.app; then **pushed (`6d12e02`)** at the owner's request — live on production ~20 s later (verified: native-resolution 3D chunk served, `m01.webp` = 640 px version, server healthy).
 
 ### 2026-11-16 — Main link = match draw; auction moved to /auction
 - `client/src/main.jsx`: `/` → match-draw audience, `/admin` → match-draw host, `/tv` (`/screen`) → match-draw TV; `/auction`, `/auction/admin`, `/auction/tv` → team auction; old `/fixtures…` and `/kids…` links still work.
