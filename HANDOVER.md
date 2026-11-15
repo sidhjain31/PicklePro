@@ -273,6 +273,11 @@ npm run build         # client production build
 
 ## 7. Current state
 
+**As of 2026-11-16 (night) — everything LIVE: match draw on the main link**
+- Pushed to `main` (owner asked): commit `de0c227`. **Render** deployed the server (live ~1 min after the push; /api/fixtures/state 200 via Vercel; a live socket got cup:state). **Vercel** production deployed by itself from the push (git auto-deploy works again): deployment `pickle-5ezw7ojpe`, aliased to https://pickle-pro-peach.vercel.app — bundle checked (socket → Render, new links, no demo).
+- Links: audience https://pickle-pro-peach.vercel.app · host https://pickle-pro-peach.vercel.app/admin · TV https://pickle-pro-peach.vercel.app/tv · auction under `/auction`.
+- Production database starts empty for the match draw: host → **⭐ Load ICC Season 2 teams** → Save (Main and Kids), rehearse, then **↺ Restart draw** before the real draw.
+
 **As of 2026-11-16 — demo removed, Restart, calmer crowd, clearer logos, draw-day rehearsal (client LIVE on production)**
 - Links changed later the same day: main link `/` = match draw, `/admin` = match-draw host, `/tv` = match-draw TV; auction under `/auction`, `/auction/admin`, `/auction/tv`. Preview https://pickle-ppovj6s3o-sp-tech3.vercel.app — **not on production yet** (deploy right after the server push, otherwise the main link would show *Coming soon*).
 - **Production updated** (owner approved, before the link change): `npx vercel deploy --prod` → deployment `pickle-de9nz1s2o`, aliased to https://pickle-pro-peach.vercel.app. Verified live: new bundle (no demo; Restart, Crowd switch, waking-server note present), `/season2/logos/*` served as WebP (missing logo → 404), sounds served as audio, auction pages unchanged. `/api/fixtures/state` still 404 → `/fixtures` shows *Coming soon* until the server is pushed to `main`. Preview of the same build: https://pickle-iq56c01hx-sp-tech3.vercel.app.
@@ -334,7 +339,7 @@ Newest first. Add an entry for every change.
 ### 2026-11-16 — Main link = match draw; auction moved to /auction
 - `client/src/main.jsx`: `/` → match-draw audience, `/admin` → match-draw host, `/tv` (`/screen`) → match-draw TV; `/auction`, `/auction/admin`, `/auction/tv` → team auction; old `/fixtures…` and `/kids…` links still work.
 - Audience pages no longer show the module bar (the main link is only the match draw); host pages keep **Match Draw | Team Auction** (`ModuleNav.jsx`). Match-draw TV QR = the main link; auction TV QR + label = `/auction`. Host buttons (Audience view / TV view) follow the new paths.
-- SIT-061 checks the new paths. Preview https://pickle-ppovj6s3o-sp-tech3.vercel.app; production not updated (needs the server push first).
+- SIT-061 checks the new paths. Preview https://pickle-ppovj6s3o-sp-tech3.vercel.app; then pushed (`de0c227`) — Render + Vercel production deployed from `main`.
 
 ### 2026-11-16 — Demo removed, host Restart, calmer crowd, clearer logos, draw-day hardening
 - **Demo mode removed** (`client/src/cup/demo.js` deleted; no `?demo=1`; leftovers in browsers are cleaned on load).
