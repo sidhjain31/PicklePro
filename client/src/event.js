@@ -11,7 +11,7 @@ export const getEvent = () => current;
 export const apiBase = () => (current === 'kids' ? '/api/kids' : '/api');
 // Per-event browser storage keys, so the two draws never mix cached state or follows.
 export const storeKey = name => (current === 'kids' ? `team-draw:kids:${name}` : `team-draw:${name}`);
-// The page without the old /kids prefix: '/', '/admin' or '/screen'.
+// The page without the old /kids prefix: '/', '/admin', '/tv', '/auction', '/auction/admin', …
 export const pagePath = () => location.pathname.replace(/^\/kids/, '') || '/';
 export const urlFor = (ev, page = pagePath()) => (ev === 'kids' ? `${page}?draw=kids` : page);
 export const pageUrl = page => urlFor(current, page);

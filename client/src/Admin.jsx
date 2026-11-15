@@ -9,6 +9,7 @@ import { Board } from './Board.jsx';
 import { ConnectionBanner, Header, Steps } from './Live.jsx';
 import { ResumeSoundPrompt, Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
+import { ModuleNav } from './ModuleNav.jsx';
 
 // Labels come from the server per event (letters A–D: main D = W1 women; kids A = B1, B = G1, C = B2, D = G2).
 const labelOf = (data, key) => data.pools.find(p => p.key === key)?.label ?? data.available.find(c => c.key === key)?.label ?? key;
@@ -42,7 +43,7 @@ export function Waking() {
   );
 }
 
-function Login({ onLogin }) {
+export function Login({ onLogin, title = 'Team draw' }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async e => {
@@ -60,7 +61,7 @@ function Login({ onLogin }) {
   return (
     <main className="login">
       <form className="card" onSubmit={submit}>
-        <p className="eyebrow">Team draw</p>
+        <p className="eyebrow">{title}</p>
         <h1>Host login</h1>
         <label>
           Password
@@ -107,9 +108,10 @@ function Dashboard({ onLogout }) {
   const ctx = { state, data, run, busy, refresh };
   return (
     <>
+      <ModuleNav current="auction" host />
       <Header state={state} connected={connected}>
-        <a className="btn btn-small" href={pageUrl('/')} target="_blank" rel="noreferrer">Audience view</a>
-        <a className="btn btn-small" href={pageUrl('/screen')} target="_blank" rel="noreferrer">Big screen</a>
+        <a className="btn btn-small" href={pageUrl('/auction')} target="_blank" rel="noreferrer">Audience view</a>
+        <a className="btn btn-small" href={pageUrl('/auction/tv')} target="_blank" rel="noreferrer">TV view</a>
         <button className="btn btn-small" onClick={logout}>Log out</button>
       </Header>
       <DrawSwitch />

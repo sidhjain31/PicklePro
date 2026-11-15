@@ -285,9 +285,14 @@ test(`${id()} config: Vercel rewrites /api (incl. /api/kids) to the Render backe
   assert.match(api.destination, /^https:\/\/picklepro-api\.onrender\.com\/api\/:path\*$/);
   assert.equal(api.source, '/api/:path*');
 });
-test(`${id()} config: Vercel SPA fallback serves index.html for /admin and /screen`, () => {
+test(`${id()} config: Vercel SPA fallback serves index.html for every page, never for assets, sounds or logos`, () => {
   const v = JSON.parse(read('client/vercel.json'));
-  assert.ok(v.rewrites.some(r => r.source === '/((?!assets/).*)' && r.destination === '/index.html'));
+  const fallback = v.rewrites.find(r => r.destination === '/index.html');
+  assert.ok(fallback);
+  const re = new RegExp(`^${fallback.source}$`);
+  for (const p of ['/', '/admin', '/tv', '/screen', '/auction', '/auction/admin', '/auction/tv', '/fixtures', '/fixtures/admin', '/fixtures/tv', '/kids/fixtures']) assert.ok(re.test(p), p);
+  // A missing file must be a real 404, not the app's HTML (sounds and textures would fail to decode).
+  for (const p of ['/assets/index.js', '/sounds/crowd.mp3', '/season2/logos/m01.webp']) assert.ok(!re.test(p), p);
 });
 test(`${id()} config: PWA service worker never caches /api or /socket.io (no stale draw data)`, () => {
   const c = read('client/vite.config.js');

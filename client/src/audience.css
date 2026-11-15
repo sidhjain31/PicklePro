@@ -319,3 +319,15 @@
 /* Host: ages & phone numbers card */
 .contact-edit { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
 .contact-edit input { min-height: 36px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.08); color: inherit; font: inherit; }
+
+/* ---------- Module nav: Team Auction | Match Draw (top of every audience and host page) ---------- */
+.module-nav { display: flex; justify-content: center; gap: 4px; padding: max(6px, env(safe-area-inset-top)) 8px 0; background: #050d26; border-bottom: 1px solid rgb(255 255 255 / 0.12); }
+.module-nav a {
+  flex: 0 1 220px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 8px 14px;
+  border-radius: 12px 12px 0 0; text-decoration: none; color: rgb(244 247 242 / 0.7);
+  font: 800 1rem/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid transparent; border-bottom: 0;
+}
+.module-nav a:hover { color: #fff; background: rgb(255 255 255 / 0.06); }
+.module-nav a.active { color: var(--net); background: var(--ball); border-color: var(--ball); }
+.module-nav a:focus-visible { outline: 3px solid var(--ball); outline-offset: -3px; }
+@media (max-width: 420px) { .module-nav a { flex: 1 1 0; font-size: 0.9rem; letter-spacing: 0.04em; padding-inline: 8px; } }

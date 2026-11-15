@@ -107,3 +107,28 @@ const guessSchema = new Schema({
 }, { timestamps: true });
 guessSchema.index({ tournamentId: 1, category: 1, teamNumber: 1, voterId: 1 }, { unique: true });
 export const Guess = model('Guess', guessSchema);
+
+// Match draw ("fixtures") — a separate module from the team auction. One document per match draw;
+// the newest per event is active, older ones are kept as history. The rules live in
+// client/src/cup/core.js (shared with the browser demo); `teams`, `draws` and `results` hold its
+// plain objects. Draw times are server-clock milliseconds.
+export const Cup = model('Cup', new Schema({
+  event: { type: String, enum: ['main', 'kids'], default: 'main' },
+  name: { type: String, required: true, trim: true, maxlength: 100 },
+  status: { type: String, enum: ['SETUP', 'DRAW', 'KNOCKOUT'], default: 'SETUP' },
+  aimMs: { type: Number, default: 3500 },
+  weapon: { type: String, default: 'auto' },
+  courts: { type: Number, default: 2 },
+  teams: { type: Array, default: [] }, // [{ key, name, players: { A, B, C, D } }]
+  draws: { type: Array, default: [] }, // [{ seq, tie, a, b, weapon, last, aimMs, startAt, revealA, revealB, doneAt, commitment, salt, voided }]
+  results: { type: Schema.Types.Mixed, default: {} }, // { L1 | QF1 | SF1 | F | 3P: { a, b, games: [{ w, sa, sb }], decider } }
+  seeds: { type: [String], default: [] },
+}, { timestamps: true, minimize: false }));
+
+// Match-draw team logos, stored once per image (content hash) and served with long caching, so
+// the live state only carries the hash and each phone downloads each logo once.
+export const CupLogo = model('CupLogo', new Schema({
+  hash: { type: String, required: true, unique: true },
+  type: { type: String, enum: ['image/png', 'image/jpeg', 'image/webp'], required: true },
+  data: { type: Buffer, required: true },
+}, { timestamps: { createdAt: true, updatedAt: false } }));

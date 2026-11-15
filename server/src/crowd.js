@@ -40,7 +40,9 @@ const relayOk = room => {
 export function attachCrowd(io) {
   io.on('connection', socket => {
     const canReact = limiter(REACTIONS_PER_SEC, 1000);
-    const room = engine.roomOf(eventOf(socket.handshake.auth?.event));
+    const auth = socket.handshake.auth ?? {};
+    // Match-draw screens react in their own room (cup:<event>), auction screens in event:<event>.
+    const room = auth.module === 'cup' ? `cup:${eventOf(auth.event)}` : engine.roomOf(eventOf(auth.event));
     socket.on('reaction', emoji => {
       if (typeof emoji !== 'string' || !REACTIONS.includes(emoji) || !canReact(socket.id) || !relayOk(room)) return;
       io.to(room).emit('reaction', { emoji }); // only screens of the same event

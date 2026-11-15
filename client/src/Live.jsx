@@ -32,13 +32,13 @@ export function Steps({ state }) {
   );
 }
 
-export function Header({ state, connected, viewers = null, children }) {
+export function Header({ state, connected, viewers = null, kicker = 'Live team draw', children }) {
   return (
     <header className="topbar">
       <div className="brand">
         <img className="brand-logo" src="/logo.png" alt="" />
         <div>
-          <p className="brand-kicker">Live team draw</p>
+          <p className="brand-kicker">{kicker}</p>
           <h1 className="brand-name">{state?.name ?? 'Team Draw'}</h1>
         </div>
       </div>

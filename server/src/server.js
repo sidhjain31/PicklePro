@@ -9,7 +9,8 @@ import { isAdmin, login, loginLimiter, logout, requireAdmin } from './auth.js';
 import * as engine from './draw.js';
 import { attachCrowd, leaderboard, submitGuess } from './crowd.js';
 import { exportWorkbook, parseUpload } from './excel.js';
-import { DrawEvent, Guess, Player, Tournament, eventOf } from './models.js';
+import { Cup, CupLogo, DrawEvent, Guess, Player, Tournament, eventOf } from './models.js';
+import { cupApi, cupRoom, cupState, resumeCupReveals, setCupIo, stopCupTimers } from './fixtures.js';
 
 const voterOf = req => (typeof req.query.voter === 'string' ? req.query.voter : undefined);
 
@@ -61,6 +62,9 @@ export function createApp() {
   app.get('/api/auth/me', (req, res) => res.json({ admin: isAdmin(req) }));
   app.post('/api/auth/login', loginLimiter, login);
   app.post('/api/auth/logout', logout);
+  // Match draw (fixtures) module: separate data and rooms, mounted before the auction routes.
+  app.use('/api/kids/fixtures', cupApi('kids'));
+  app.use('/api/fixtures', cupApi('main'));
   // Two events on one engine: /api/kids/* is the kids draw, /api/* the main draw. Same routes,
   // same rules, separate tournaments. Kids is mounted first so /api never swallows /api/kids.
   app.use('/api/kids', eventApi('kids'));
@@ -85,7 +89,7 @@ export function createApp() {
 
 export async function start({ port = 4000, mongoUri = process.env.MONGODB_URI } = {}) {
   await mongoose.connect(mongoUri);
-  await Promise.all([Tournament.init(), Player.init(), DrawEvent.init(), Guess.init()]);
+  await Promise.all([Tournament.init(), Player.init(), DrawEvent.init(), Guess.init(), Cup.init(), CupLogo.init()]);
   const server = createServer(createApp());
   // Socket.IO clients can only send emoji reactions, which are validated and relayed; nothing a
   // client sends can start, choose or change a draw.
@@ -97,51 +101,61 @@ export async function start({ port = 4000, mongoUri = process.env.MONGODB_URI } 
   // connection. Each browser sends a random id kept in localStorage, so refreshes, reconnects and
   // extra tabs in the same browser count once; host (/admin) and projector (/screen) connections
   // are not audience and are excluded. It counts browsers, not people.
-  // Kept per event: the kids screens show the kids audience, the main screens the main audience.
-  const audience = { main: new Map(), kids: new Map() }; // viewerId -> number of live sockets
-  const lastViewers = { main: -1, kids: -1 };
-  const viewersTimer = { main: null, kids: null };
-  const viewerCount = ev => audience[ev].size;
-  const announceViewers = ev => {
-    if (viewersTimer[ev]) return;
-    viewersTimer[ev] = setTimeout(() => {
-      viewersTimer[ev] = null;
-      const n = viewerCount(ev);
-      if (n !== lastViewers[ev]) io.to(engine.roomOf(ev)).emit('viewers', { count: (lastViewers[ev] = n) });
-    }, 1500);
+  // Kept per room: each draw (auction main / kids, match draw main / kids) shows its own audience.
+  const audience = new Map(); // room -> Map(viewerId -> number of live sockets)
+  const lastViewers = new Map();
+  const viewersTimer = new Map();
+  const viewerCount = room => audience.get(room)?.size ?? 0;
+  const announceViewers = room => {
+    if (viewersTimer.get(room)) return;
+    viewersTimer.set(room, setTimeout(() => {
+      viewersTimer.delete(room);
+      const n = viewerCount(room);
+      if (n !== lastViewers.get(room)) {
+        lastViewers.set(room, n);
+        io.to(room).emit('viewers', { count: n });
+      }
+    }, 1500));
   };
   io.on('connection', async socket => {
-    const { role, viewer, event } = socket.handshake.auth ?? {};
+    const { role, viewer, event, module } = socket.handshake.auth ?? {};
     const ev = eventOf(event);
-    socket.join(engine.roomOf(ev));
+    const cup = module === 'cup';
+    const room = cup ? cupRoom(ev) : engine.roomOf(ev);
+    socket.join(room);
     const viewerId = role === 'audience' && typeof viewer === 'string' && /^[\w-]{8,64}$/.test(viewer) ? viewer : null;
     if (viewerId) {
-      const map = audience[ev];
+      if (!audience.has(room)) audience.set(room, new Map());
+      const map = audience.get(room);
       map.set(viewerId, (map.get(viewerId) ?? 0) + 1);
       socket.on('disconnect', () => {
         const left = (map.get(viewerId) ?? 1) - 1;
         if (left > 0) map.set(viewerId, left);
         else map.delete(viewerId);
-        announceViewers(ev);
+        announceViewers(room);
       });
-      announceViewers(ev);
+      announceViewers(room);
     }
-    socket.emit('viewers', { count: viewerCount(ev) });
+    socket.emit('viewers', { count: viewerCount(room) });
     try {
-      socket.emit('tournament:state', await engine.cachedPublicState(ev));
+      if (cup) socket.emit('cup:state', await cupState(ev));
+      else socket.emit('tournament:state', await engine.cachedPublicState(ev));
     } catch (err) {
       console.error('initial state failed', err);
     }
   });
   engine.setIo(io);
+  setCupIo(io);
   await engine.resumePendingReveals();
+  await resumeCupReveals();
   await new Promise(resolve => server.listen(port, resolve));
   return {
     port: server.address().port,
     async close() {
       engine.setIo(null);
-      clearTimeout(viewersTimer.main);
-      clearTimeout(viewersTimer.kids);
+      setCupIo(null);
+      stopCupTimers();
+      viewersTimer.forEach(clearTimeout);
       await io.close();
       await mongoose.disconnect();
     },

@@ -1,0 +1,359 @@
+{
+ "season": "ICC Pickleball Season 2",
+ "main": [
+  {
+   "name": "PICKLE SUPER STARS",
+   "players": {
+    "A": "Nihal Hemdev",
+    "B": "Hridaan Muni",
+    "C": "Anshvardhan Modi",
+    "D": "Veera Mehta"
+   },
+   "logo": "s:m01.webp",
+   "color": "#e08843"
+  },
+  {
+   "name": "THE NET KRACKERS",
+   "players": {
+    "A": "Karan",
+    "B": "Aryan Shetty",
+    "C": "Rajesh Pandey",
+    "D": "Kruti Adani"
+   },
+   "logo": "s:m02.webp",
+   "color": "#e0d00f"
+  },
+  {
+   "name": "THE DROP SHOT DONS",
+   "players": {
+    "A": "Ayush Parekh",
+    "B": "Digant Mehta",
+    "C": "Aditya Gala",
+    "D": "Tashvi Agrawal"
+   },
+   "logo": "s:m03.webp",
+   "color": "#3986e0"
+  },
+  {
+   "name": "THARKI DINKS",
+   "players": {
+    "A": "Arnav Nandu",
+    "B": "Sidh Jain",
+    "C": "Deepak Gandhi",
+    "D": "Riti Jain"
+   },
+   "logo": "s:m04.webp",
+   "color": "#249fe0"
+  },
+  {
+   "name": "MATCH POINT",
+   "players": {
+    "A": "Saurabh Vijayvergia",
+    "B": "Vikas Deep Gupta",
+    "C": "Deepak Maheshwari",
+    "D": "Riya Shah"
+   },
+   "logo": "s:m05.webp",
+   "color": "#c3e02a"
+  },
+  {
+   "name": "THE DINK DOMINATORS",
+   "players": {
+    "A": "Aditya Mehta",
+    "B": "Darshan Mehta",
+    "C": "Pinkesh Valdria",
+    "D": "Nandita Chandak"
+   },
+   "logo": "s:m06.webp",
+   "color": "#e0cb18"
+  },
+  {
+   "name": "DINKIN DONUTS",
+   "players": {
+    "A": "Burzin Kohina",
+    "B": "Vishal Madia",
+    "C": "Kunjjaan Popat",
+    "D": "Neetu Maheshwari"
+   },
+   "logo": "s:m07.webp",
+   "color": "#e0437d"
+  },
+  {
+   "name": "PICKLE TICKLE",
+   "players": {
+    "A": "Devesh Tahiliani",
+    "B": "Vyom Gada",
+    "C": "Rakesh Shah",
+    "D": "Dr Konica Shrivastav"
+   },
+   "logo": "s:m08.webp",
+   "color": "#a4e029"
+  },
+  {
+   "name": "RALLY RASCALS",
+   "players": {
+    "A": "Rinkesh Dhanresha",
+    "B": "Jigar Ved",
+    "C": "Ravi Ratanghayra",
+    "D": "Dhvani Shah"
+   },
+   "logo": "s:m09.webp",
+   "color": "#e04a39"
+  },
+  {
+   "name": "IN A PICKLE",
+   "players": {
+    "A": "Yaggya",
+    "B": "Jatin Shah",
+    "C": "Mehul Masrani",
+    "D": "Riya Parekh"
+   },
+   "logo": "s:m10.webp",
+   "color": "#e0d12b"
+  },
+  {
+   "name": "NO STRINGS ATTACHED",
+   "players": {
+    "A": "Minesh Adani",
+    "B": "Yuv Parmar",
+    "C": "Aaryan Shah",
+    "D": "Khyati Shah"
+   },
+   "logo": "s:m11.webp",
+   "color": "#c8e030"
+  },
+  {
+   "name": "KITCHEN KNIGHTMARES",
+   "players": {
+    "A": "Rohan Shah",
+    "B": "Suyash Rane",
+    "C": "Dhrumil Ved",
+    "D": "Nirali"
+   },
+   "logo": "s:m12.webp",
+   "color": "#e0b715"
+  },
+  {
+   "name": "NET NINJAS",
+   "players": {
+    "A": "Vivek Shah",
+    "B": "Tanay Chandaliya",
+    "C": "Nirav Trivedi",
+    "D": "Arpita Ved"
+   },
+   "logo": "s:m13.webp",
+   "color": "#43d6e0"
+  },
+  {
+   "name": "DINK JANTA PARTY DJP",
+   "players": {
+    "A": "Jvalant Sampat",
+    "B": "Raghavendra Singhania",
+    "C": "Naveen Sancheti",
+    "D": "Aashna Kenia"
+   },
+   "logo": "s:m14.webp",
+   "color": "#1995e0"
+  },
+  {
+   "name": "DINK FLOYD",
+   "players": {
+    "A": "Vikram Nerurkar",
+    "B": "Jimit Badani",
+    "C": "Shreyans Jain",
+    "D": "Vyoma Popat"
+   },
+   "logo": "s:m15.webp",
+   "color": "#e0a12c"
+  },
+  {
+   "name": "PICKLE KE CHHICHHORE",
+   "players": {
+    "A": "Arpit Jain",
+    "B": "Chirag V",
+    "C": "Purav Jain",
+    "D": "Nupur Ankur Choudhari"
+   },
+   "logo": "s:m16.webp",
+   "color": "#e08743"
+  },
+  {
+   "name": "THREE DINKS & A DAME",
+   "players": {
+    "A": "Manan S Vora",
+    "B": "Jimit Shanghavi",
+    "C": "Rajiv Chandak",
+    "D": "Priyanka Gandhi"
+   },
+   "logo": "s:m17.webp",
+   "color": "#2475e0"
+  },
+  {
+   "name": "ZERO LOVE",
+   "players": {
+    "A": "Viraj Mehta",
+    "B": "Jigar Badani",
+    "C": "Rhythm Jain",
+    "D": "Prachi Chopra"
+   },
+   "logo": "s:m18.webp",
+   "color": "#e01d32"
+  },
+  {
+   "name": "FOURMIDABLE PAKKK",
+   "players": {
+    "A": "Kush Somaiya",
+    "B": "Pranav Rathi",
+    "C": "Koustubh Kanade",
+    "D": "Aditi Sirdeshpande"
+   },
+   "logo": "s:m19.webp",
+   "color": "#d1e01c"
+  },
+  {
+   "name": "FLAT & FURIOUS",
+   "players": {
+    "A": "Kashyap Shah",
+    "B": "Raj Gupta",
+    "C": "Krishnakumar",
+    "D": "Aashi Jain"
+   },
+   "logo": "s:m20.webp",
+   "color": "#206ae0"
+  },
+  {
+   "name": "ACE CRUSHERS",
+   "players": {
+    "A": "Jenit Jain",
+    "B": "Sourav Savla",
+    "C": "Darshil Shah",
+    "D": "Phoram Sampat"
+   },
+   "logo": "s:m21.webp",
+   "color": "#c9e03f"
+  },
+  {
+   "name": "DINK WARRIORS",
+   "players": {
+    "A": "Monik Shah",
+    "B": "Vinay Chhadva",
+    "C": "Niket Rambhia",
+    "D": "Vidhi Shah"
+   },
+   "logo": "s:m22.webp",
+   "color": "#e0a32e"
+  },
+  {
+   "name": "RALLY REBELS",
+   "players": {
+    "A": "Chirag Muni",
+    "B": "Ritik Chopra",
+    "C": "Mehul Jain",
+    "D": "Bijal Parekh"
+   },
+   "logo": "s:m23.webp",
+   "color": "#e0260f"
+  },
+  {
+   "name": "THE PICKLE PALS",
+   "players": {
+    "A": "Nevaan Vijayvergia",
+    "B": "Tejas Ved",
+    "C": "Amit Dedhia",
+    "D": "Sayonee Jain"
+   },
+   "logo": "s:m24.webp",
+   "color": "#e01969"
+  },
+  {
+   "name": "SERVE-IVORS",
+   "players": {
+    "A": "Vinoth Govind",
+    "B": "Aditya Jain",
+    "C": "Dhruv Desai",
+    "D": "Shivani Badani"
+   },
+   "logo": "s:m25.webp",
+   "color": "#e0c322"
+  },
+  {
+   "name": "FOURPLAY",
+   "players": {
+    "A": "Pratham Sutaria",
+    "B": "Niranjan Banodkar",
+    "C": "Nishant Jain",
+    "D": "Nidhi Shah"
+   },
+   "logo": "s:m26.webp",
+   "color": "#e0b316"
+  },
+  {
+   "name": "PICKLE PREDATORS",
+   "players": {
+    "A": "Dhaval Mehta",
+    "B": "Madhur",
+    "C": "Rubin Chheda",
+    "D": "Ruchira Vijayvergia"
+   },
+   "logo": "s:m27.webp",
+   "color": "#e0c61f"
+  },
+  {
+   "name": "DINK DYNASTY",
+   "players": {
+    "A": "Harshvardhan Chheda",
+    "B": "Yash Vora",
+    "C": "Deepak Mittal",
+    "D": "Vinita Kothari"
+   },
+   "logo": "s:m28.webp",
+   "color": "#e08643"
+  }
+ ],
+ "kids": [
+  {
+   "name": "FIREBALL ACES",
+   "players": {
+    "A": "Kanish Agrawal",
+    "B": "Navya Sampat",
+    "C": "Kayaan Mehta",
+    "D": "Dia Kothari"
+   },
+   "logo": "s:k01.webp",
+   "color": "#e06e31"
+  },
+  {
+   "name": "ACE BANDITS",
+   "players": {
+    "A": "Rivaan",
+    "B": "Saiesha Mitesh Kothari",
+    "C": "Rishaan Agal",
+    "D": "Jiana Shah"
+   },
+   "logo": "s:k02.webp",
+   "color": "#e0b343"
+  },
+  {
+   "name": "LOW KEY LEGENDS",
+   "players": {
+    "A": "Advait Kamdar",
+    "B": "Natasha Neil Shah",
+    "C": "Yuvraaj Parikh",
+    "D": "Samaira Shah"
+   },
+   "logo": "s:k03.webp",
+   "color": "#e0c51b"
+  },
+  {
+   "name": "ERROR 404",
+   "players": {
+    "A": "Viaan Sancheti",
+    "B": "Nishka Ved",
+    "C": "Kabir Parekh",
+    "D": "Vedanshi Gala"
+   },
+   "logo": "s:k04.webp",
+   "color": "#e016a2"
+  }
+ ]
+}

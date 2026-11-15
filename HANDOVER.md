@@ -7,6 +7,8 @@ Live team-draw ("auction") app for the **ICC Pickleball** tournaments, built & d
 | **Main draw** | 28 | A (shuffled in one go) → Women → B → C (D optional; any order) | one player per category |
 | **Kids draw** | 4 | Icon Boy (shuffled in one go) → Boy → Girl 1 → Girl 2 | 1 Icon Boy + 1 Boy + 2 Girls |
 
+A second, **separate module — the Match draw** (`/fixtures`) — decides who plays whom after the auction: the host uploads the final-teams PDF, every match is drawn live with an animated "arena" show on every phone, then results, standings, quarter-finals, semis and the final follow live. See [section 2b](#2b-match-draw-fixtures-module).
+
 > Keep this file current. Every change to the app gets an entry in the [Change log](#change-log) at the bottom.
 
 ---
@@ -15,9 +17,16 @@ Live team-draw ("auction") app for the **ICC Pickleball** tournaments, built & d
 
 | Who | Link | Notes |
 |---|---|---|
-| **Everyone (phones)** | https://pickle-pro-peach.vercel.app | Watch live. **Main draw / Kids draw** switch at the top. |
-| **Host / admin** | https://pickle-pro-peach.vercel.app/admin | Log in, set up, Shuffle / Spin / Finalize, PDF / Excel / gallery. Same switch at the top. |
-| Projector / TV (optional) | https://pickle-pro-peach.vercel.app/screen | Big-screen view with QR code; follows the same mode (`?draw=kids`). |
+**Since 2026-11-16 the main link is the MATCH DRAW** (the team auction is finished and moved to `/auction`). Old `/fixtures…` links still open the match draw.
+
+| Who | Link | Notes |
+|---|---|---|
+| **Everyone (phones) — match draw** | https://pickle-pro-peach.vercel.app | Live match draw, fixtures, results, knockout. **Main / Kids** switch at the top (`?draw=kids`). Only the match draw — no module bar for the audience. |
+| **Host — match draw** | https://pickle-pro-peach.vercel.app/admin | Log in (same password). Load teams, draw matches, results, knockout, ↺ Restart. Host pages have the **Match Draw \| Team Auction** bar. |
+| **TV — match draw** | https://pickle-pro-peach.vercel.app/tv (old `/screen`) | Arena full screen + QR (the main link) + matches list. |
+| Team auction — everyone | https://pickle-pro-peach.vercel.app/auction | The finished auction (teams, history). Main / Kids switch at the top. |
+| Team auction — host | https://pickle-pro-peach.vercel.app/auction/admin | Shuffle / Spin / Finalize, PDF / Excel / gallery. |
+| Team auction — TV | https://pickle-pro-peach.vercel.app/auction/tv | Big-screen view with QR (`/auction`). |
 | Backup (full app) | https://picklepro-api.onrender.com (+ `/admin`) | Use if Vercel is down. |
 | Health check | https://picklepro-api.onrender.com/api/health | `{"ok":true,"db":"up"}` = server + database fine. |
 | Repository | https://github.com/sidhjain31/PicklePro | Push to `main` deploys everything. |
@@ -89,6 +98,37 @@ First sheet of an `.xlsx`, or a `.csv`. Row 1 = list names, names underneath, on
 
 ---
 
+## 2b. Match draw (fixtures) module
+
+Separate from the auction: own data (`cups` collection), routes (`/api/fixtures/*`, `/api/kids/fixtures/*`), live rooms (`cup:main`, `cup:kids`) and pages (`/fixtures`, `/fixtures/admin`, `/fixtures/screen`). Teams come only from the uploaded PDF (or typed in), never from the auction.
+
+**Format** (organisers' sheet; timings ignored): every team plays **one match** against a drawn opponent. A match = **six doubles games**, same categories against each other: **A/B, C/D, A/C, B/D, A/D, B/C**. Matches are spread over the courts in draw order (default 2 courts: match 1 → Court 1, match 2 → Court 2, …). Then the knockout:
+- **8+ teams (main, 28):** standings → **QF1 1st v 8th, QF2 2nd v 7th, QF3 3rd v 6th, QF4 4th v 5th** → **SF1 = winners QF1/QF2, SF2 = winners QF3/QF4** → **Final**.
+- **4–7 teams (kids, 4):** **Final 1st v 2nd** and **3rd/4th place 3rd v 4th**.
+- A match is won with 4+ games; at 3–3 the points decide (if entered), else the host taps a decider. Standings: matches won → games won → points difference → points for. The host can change any knockout position before locking (own tie-break rules).
+
+**Host flow** (`/fixtures/admin`): 1) **Upload teams file** — **PDF, Excel (.xlsx), Word (.docx), CSV** or pasted text. Reads team names, players by category (A–D; M1/M2/M3/W1 and B1/G1/B2/G2 read as A–D) in any of: the auction's own team-card PDF (tested 28/28, 4/4), cards with a team name above, a table `Team | A | B | C | D` (any order, extra columns ignored), a list `Team | Category | Name` (one player per row, team name only on its first row is fine), or `Team 1` + `A: Name` lines. **Logos inside the file are picked up**: Excel pictures by the row they sit in, Word pictures by table row, PDF pictures by the nearest team card (a picture repeated on every page, like a header logo, is ignored). Tested with generated files: Excel 6/6 logos, Word 6/6, PDF 6/6. Everything shows in an editable table with **logo** (tap to change), **colour** (taken from the logo automatically, editable), name and players → **Save**. **Upload logos** takes many pictures at once (file named after the team → that team; others fill teams without a logo in order). 2) **The show**: title, suspense (2–7 s), shot (Surprise = changes every match, or one fixed), courts. 3) **Open the arena** (needs an even number of teams, ≥ 4; locks names/players — logos and colours can still be changed later under **🎨 Logos & colours**). Then **Draw match N** per match (optionally choose that match's shot), **Undo last match** (only the latest, not during its show, not once it has results). Results: tap the winning pair per game or type points; knockout line-up → **Lock & reveal**; **Unlock** while no knockout result exists. Tools: **↺ Restart draw** (same teams, logos and settings, nothing drawn — rehearse as often as you like, then Restart once before the real draw; the host must type RESTART, and it is refused while a show runs), **Fixtures PDF**, **Start a new match draw** (empty, new name; type NEW). Old draws stay in the database — to undo a Restart, delete the newest `cups` document of that event in Atlas and the previous one is active again.
+
+**The show — Smash Arena 3D** (every phone, in sync, ~23 s per match at 3.5 s suspense; three.js, loaded only on match-draw pages): a night stadium (floodlights, crowd with camera flashes, big screen with the ICC logo showing "MATCH 4 OF 14 · ROCKET SERVE"), a pickleball court and net; every team not yet drawn stands on the far side as a glowing **crest** in its colour with its logo and name. Per match: the arena goes full-screen ("theatre", ✕ to minimise) → shot title card → a **spotlight hunts** across the crests, faster with a heartbeat → **locks on** → camera drops behind the paddle, ball tossed, **slow-motion smash** → the camera chases the shot → the crest **shatters**, the team's logo rises with its name ("SMASH TITANS is in!") and floats to the corner → hunt again → second smash → the two logos **collide** → **VERSUS** screen in the two team colours with both logos, rosters and the six games with real names → the remaining crests regroup. Shots: 🔥 Fireball Smash, ⚡ Thunder Smash (lightning from the sky), 💠 Laser Drive, 🚀 Rocket Serve (smoke trail), ☄️ Sky Lob (meteor from the sky), 🌀 Banana Curve; the **last two teams** get 🔗 "Last two standing" (they lift, lightning arcs, they collide). Also: crests rise when the host opens the arena, "All N matches are set!" + fireworks, result toasts, knockout line-up revealed as back-to-back VS cards, **Champions** screen with the logo. Phones (touch screens) use a lighter render (no bloom, lower resolution); without WebGL, or if the GPU drops out, the 2D arena takes over automatically (`?2d=1` forces it). Logos are shown as **full squares** (rounded, light frame) on every crest and on the floating emblem, leaning back towards the camera and kept just under the glow threshold so they stay sharp — the organisers' logos are square artwork with the team name edge to edge, which a circle cut off. The same rounded squares are used in the 2D lists, VS and champions screens. Teams without a logo get a generated badge (colour ring, icon, initials, name). Reactions bar works here too (own room). Sound: real recordings (see *Match-draw sounds* below) with the synthesized sounds as fallback.
+
+**Fair and spoiler-free:** the server picks both teams with `crypto.randomInt` and stores them, but each team appears in the public state only at its reveal time (server clock; screens animate around it), and a fresh state is pushed to every phone at each reveal. Seal: `SHA-256("PicklePro|cup|v1|seq|match|teamA|teamB|key")` public when the show starts, key public when it ends; the host page re-checks every match (✅ Fairness seal N/N).
+
+**Match-draw sounds** (`client/public/sounds/*.mp3`, played by `client/src/cup/sfx.js` through the main sound engine, so the 🔊 button still mutes everything instantly; files are fetched only on phones with sound on, never precached):
+- Layers: **music** (dhol + electronic, ducks under big moments), a **soft crowd murmur only while the spotlight hunts** (fades out after each reveal — no constant stadium roar, people found it irritating), and one-shot effects: arena open, title card, drum roll (hunt), slow-motion whoosh, real paddle pop, one flight sound per shot, shatter + short cheer + dhol hit on every reveal, metal clash (logos collide / VS, no extra cheer), referee whistle + fanfare (all matches set), fanfare + fireworks + dhols (champions), short cheer per result. Every cheer is a short faded burst (about 1–3 s, quieter than before).
+- Per device: **🎵 Music on/off** and **👥 Crowd on/off** buttons in the arena (remembered on that phone/TV); the 🔊 button mutes everything.
+- Sources and licences (checked 2026-11-14): **Mixkit** (Sound Effects Free License — commercial use inside a product allowed): crowd 2097, open 2900, title 2918, drumroll 577, slowmo 1486, fireball 1347, thunder 1300, laser 1287, rocket 1714, meteor 3024, curve 1493, shatter 1693, cheer 462, clash 1687, whistle 614, fanfare 2293, fireworks 524 (ids = mixkit.co item ids). **Pixabay** (Pixabay Content License — free commercial use, no credit needed, not resold standalone): `pop` = "PickleBall" (freesound_community, id 24267), `dhol-hit` = "Dhol And Neon (15 sec stinger)" (kaazoom, 564695), `music` = "Dhol And Neon (1 min edit)" (kaazoom, 564697), `dhols` = "Indian Wedding Dhols" (freesound_community, 52474).
+- Processing: trimmed, mono 96 kbps (music stereo 112 kbps), levelled, faded; crowd made a seamless loop. Script kept outside the repo (scratchpad `audio-tools/process.mjs`, uses `mpg123-decoder` + `lamejs`); 21 files = 2.2 MB in the app (Pixabay credit line shown by Pixabay: "Music by Paul Winter from Pixabay" for the kaazoom tracks — credit is optional under the Pixabay licence). A missing file just falls back to the synthesized sound (Vercel returns 404 for `/sounds/*` that don't exist — `client/vercel.json`).
+
+**Performance** (3D): starts at bloom + 1.75× resolution (desktop) or no bloom + 1.3× (touch screens), then steps down automatically (bloom off → 1.3× → 1× → 0.75×) when frames stay slower than ~38 fps; all effect materials compiled while loading (no freeze at the first smash); lightning shapes pre-built per bolt; shard materials shared; emblem labels reuse the crest label; 3D stops drawing behind the VERSUS screen and when scrolled off screen; big glowing overlay text drawn once into its own layer; the page re-renders twice per match (not per step).
+
+**ICC Season 2 teams (organisers' final list)** — `client/src/cup/season2.json`, built from *ICC PICKELBALL SEASON 2 - updated.xlsx* (28 main + 4 kids teams; the **Replaced** column wins — e.g. Team 1 has all four replacements, Fireball Aces has Kayaan Mehta for Hridhaan Muni; ages, phone numbers and the payment table are ignored; "THE DROP SHOT DONE" corrected to "DONS" to match its logo, "SERVE - IVORS" written "SERVE-IVORS"). Logos from the organisers' Drive folder *Team Logos* (32 files; 3 were PDFs, rendered) are in `client/public/season2/logos/` as 320 px WebP (`m01`–`m28` main by team number, `k01`–`k04` kids, plus `icc-shield.webp`), ~1.1 MB, served by Vercel's CDN. Team colours are the most vivid colour of each logo (pickleball-yellow down-weighted). A team's `logo` can therefore be a bundled file `s:m01.webp` (no upload needed) or an uploaded image hash. Host page: **⭐ Load ICC Season 2 teams** fills the table in one tap (then Save). Three logos (`m01`, `m18`, `m23`) had a fake grey/white "transparent" checkerboard baked in; it was replaced with plain white (flood fill from the edges, logo untouched; scratchpad `clean_checker.py`). Scripts used (outside the repo, scratchpad): `season2_data.py`, `process_logos.py`, `logo_colours.py`.
+
+**Who controls what:** only the host (`/fixtures/admin`, password) opens the arena, draws, enters results and locks the knockout. Audience pages never show draw controls. There is no demo mode any more (removed 2026-11-16): every page talks to the real server. The **Team Auction | Match Draw** bar at the top of every audience and host page switches modules (`client/src/ModuleNav.jsx`); TV views don't show it.
+
+**Rules live in one place:** `client/src/cup/core.js` (pure functions) is used by the server **and** the pages, so both read a cup the same way.
+
+---
+
 ## 3. Architecture
 
 | Part | Tech | Hosted on |
@@ -127,17 +167,30 @@ First sheet of an `.xlsx`, or a `.csv`. Row 1 = list names, names underneath, on
 | `client/src/Board.jsx`, `Live.jsx`, `Screen.jsx` | Team board; audience page; projector |
 | `client/src/report.js`, `gallery.js`, `fair.js` | PDF report; gallery PNG; browser-side fairness check |
 | `client/src/styles.css`, `audience.css` | Styling (palette from the ICC logo) |
+| `server/src/fixtures.js` | Match draw: storage, secure picks, seal, timed reveal broadcasts, routes (`cupApi`) |
+| `client/src/cup/core.js` | Match draw rules (shared by server + pages): view/hiding, draw, undo, results, standings, knockout |
+| `client/src/cup/live.js` | Live hook (`useCup`, socket room `cup:<event>`, clock offset), API routing |
+| `client/src/cup/SmashArena.jsx`, `stage3d.js` | The 3D show: director in step with the server reveals + captions; three.js stadium, crests, spotlight, paddle/ball, shots, shatter, emblems |
+| `client/src/cup/Arena.jsx`, `fx.js`, `Versus.jsx`, `Moments.jsx` | 2D fallback arena + canvas effects, VS splash (team colours + logos), toasts / knockout reveal / champions |
+| `client/src/cup/looks.jsx` | Team colours, generated badges, logo URLs, `TeamLogo`, logo resizing + main-colour detection, shot names |
+| `client/src/cup/CupLive.jsx`, `CupAdmin.jsx`, `CupScreen.jsx`, `Boards.jsx` | Audience, host, big screen; fixtures, standings, bracket, find my match |
+| `client/src/cup/importTeams.js`, `teamsPdf.js` | Import PDF / Excel / Word / CSV / text incl. logos (fflate + pdf.js, host only, lazy, not precached) |
+| `client/src/cup/fixturesPdf.js`, `cup.css` | Fixtures PDF, styles |
 
 ### Database collections
 - **tournaments** — event, name, status (`DRAFT`/`LIVE`/`COMPLETED`), teamCount (28 / 4), categories (round order), currentIndex, spinMs, predictions (on/off). The newest document **per event** is that event's active tournament; older ones are its archive.
 - **players** — tournamentId, category (= list: A, WOMEN, B, C, D, ICON, BOY, GIRL), name, nameKey. Unique on (tournamentId, nameKey).
 - **drawevents** — the source of truth: actionId, sequence, category (round), teamNumber, playerId, playerName, revealAt, voided, commitment, salt. Unique on sequence and (non-voided) on team-per-round and on player.
 - **guesses** — tournamentId, category, teamNumber, voterId, nickname, playerName. Unique per (tournament, round, team, voter).
+- **cups** (match draw) — event, name, status (`SETUP`/`DRAW`/`KNOCKOUT`; league/done are derived), aimMs, weapon, courts, teams `[{key,name,players{A,B,C,D},color,logo}]` (logo = hash of a stored image), draws `[{seq,tie,a,b,weapon,last,startAt,revealA,revealB,doneAt,commitment,salt,voided}]`, results `{L1|QF1|SF1|F|3P: {a,b,games[{w,sa,sb}],decider}}`, seeds. Newest per event is active.
+- **cuplogos** — hash (SHA-256, 32 hex), type (PNG/JPEG/WebP), data. One document per distinct image; served at `/api/fixtures/logo/<hash>` with a one-year immutable cache, so each phone downloads each logo once.
 
 ### API (main at `/api`, kids at `/api/kids` — same routes)
 Public: `GET /state`, `POST /guess`, `GET /leaderboard[?voter=]` — plus shared `GET /api/health`, `GET /api/auth/me`, `POST /api/auth/login`, `POST /api/auth/logout`.
 Host cookie: `GET /admin`, `PATCH /tournament`, `POST /tournaments`, `GET /tournaments`, `PUT /players`, `POST /players/import`, `POST /start`, `POST /draw`, `POST /undo`, `POST /finalize`, `GET /export.xlsx[?tournament=]`.
 Socket events (server → clients, per draw room): `viewers`, `tournament:state`, `draw:spinning`, `draw:revealed`, `draw:undone`, `category:finalized`, `reaction`. Client → server: `reaction`.
+
+**Match draw** (main at `/api/fixtures`, kids at `/api/kids/fixtures`): public `GET /state`, `GET /logo/:hash`; host cookie `GET /admin` (fairness history), `PATCH /settings`, `PATCH /looks {looks: {t1: {color, logo}}}`, `PUT /logos {logos: {t1: dataUrl|null}}` (≤ 400 KB each), `PUT /teams`, `POST /open`, `POST /setup`, `POST /draw {tie, weapon?}`, `POST /undo {seq}`, `PUT /result {tie, games, decider}`, `POST /seed {seeds}`, `POST /unseed`, `POST /new {name}`. Sockets connect with `auth.module = 'cup'` → room `cup:<event>`, event `cup:state` (sent on every change and at each reveal), plus `viewers` / `reaction`.
 
 ---
 
@@ -196,6 +249,19 @@ npm run build         # client production build
 - [ ] Share **one** link: https://pickle-pro-peach.vercel.app (people use the switch).
 - [ ] Run the draw. **Export Excel after each round** (Atlas M0 has no automatic backups). PDF + gallery at the end.
 
+**Match draw — rehearsal (any day before)**
+- [ ] Server pushed to `main` (Render deployed) — otherwise `/fixtures` shows *Coming soon*.
+- [ ] `/fixtures/admin` → Main → **⭐ Load ICC Season 2 teams** → Save → settings → **Open the arena** → draw a few (or all) matches with the audience link on 2–3 phones + the TV view. Try Undo, a phone refresh mid-show, Wi-Fi off/on.
+- [ ] Same for **Kids** (switch at the top).
+- [ ] When happy: **↺ Restart draw** (type RESTART) in Main and in Kids → both back to *Coming up* with the same teams, nothing drawn.
+
+**Match draw — on the day**
+- [ ] 15 min before: open https://picklepro-api.onrender.com/api/health (wakes the free server; first load can take ~1 min), then `/fixtures/admin`, log in. Open pages keep the server awake.
+- [ ] TV: open `/fixtures/tv`, tap **Tap for sound** and **Full screen** once. Share the audience link https://pickle-pro-peach.vercel.app/fixtures (QR on the TV).
+- [ ] Don't push code or redeploy during the event.
+- [ ] **Open the arena** → **Draw match 1 … 14** (wait for each show; the button counts down). Results → **Lock knockout** → knockout results.
+- [ ] A double tap or two host phones can't draw twice (the server takes one, refuses the rest). If the host loses connection, the show still runs for everyone; reconnect and continue.
+
 **If something goes wrong**
 - *Connection lost* on host: draws pause until it reconnects; nothing is lost.
 - Vercel down: use `https://picklepro-api.onrender.com` (+ `/admin`).
@@ -206,6 +272,39 @@ npm run build         # client production build
 ---
 
 ## 7. Current state
+
+**As of 2026-11-16 — demo removed, Restart, calmer crowd, clearer logos, draw-day rehearsal (client LIVE on production)**
+- Links changed later the same day: main link `/` = match draw, `/admin` = match-draw host, `/tv` = match-draw TV; auction under `/auction`, `/auction/admin`, `/auction/tv`. Preview https://pickle-ppovj6s3o-sp-tech3.vercel.app — **not on production yet** (deploy right after the server push, otherwise the main link would show *Coming soon*).
+- **Production updated** (owner approved, before the link change): `npx vercel deploy --prod` → deployment `pickle-de9nz1s2o`, aliased to https://pickle-pro-peach.vercel.app. Verified live: new bundle (no demo; Restart, Crowd switch, waking-server note present), `/season2/logos/*` served as WebP (missing logo → 404), sounds served as audio, auction pages unchanged. `/api/fixtures/state` still 404 → `/fixtures` shows *Coming soon* until the server is pushed to `main`. Preview of the same build: https://pickle-iq56c01hx-sp-tech3.vercel.app.
+- **The demo is gone** — the match draw now only works against the real server, so the **server must be pushed to `main`** (Render) before anyone (incl. the host) can try it. Until then production `/fixtures` shows *Coming soon*.
+- Tested locally against the real server (scripts in the scratchpad: `rehearsal.mjs`, `crowdload.mjs`, `midshow.mjs`): full Main (28 teams, 14 matches + an undo, results, QF→SF→Final, champion, Restart) and Kids (4 teams) at real speed, also both at once — every check passed (no team visible before its reveal, a double tap gives exactly one draw, next draw/undo/restart refused during a show, every team drawn exactly once, every fairness seal verifies). **300 simulated phones**: all connected, every reveal arrived 46–155 ms after its reveal time, none early. **Server killed mid-show** and restarted: the match finished on schedule, the TV reconnected and caught up by itself. Server tests 1040/1040. The local dev server (watch mode) also restarted by itself once mid-rehearsal (a file event from the Vercel CLI/OneDrive) — the draw carried on correctly.
+
+**As of 2026-11-15 — ICC Season 2 teams + logos, host-only control, TV view, module nav (preview)**
+- Preview: https://pickle-7z4re3be0-sp-tech3.vercel.app (SP TECH Vercel login) — `/fixtures?demo=1` (audience, watch only), `/fixtures/admin?demo=1` (host demo), `/fixtures/tv?demo=1`. **Production not updated yet** (still the build from 2026-11-14 night).
+- For the real event (host on one device, audience on their phones) the **server must be pushed to `main`** (Render). Until then only the demo works, and the demo only syncs tabs of one browser.
+- Tests: `cup.test.js` 12/12 (new: bundled `s:` logos accepted, path-like refused).
+
+**As of 2026-11-14 (night) — lag fix + real sounds LIVE on production (client)**
+- `npx vercel deploy --prod` → deployment `pickle-ikvg63b2k`, aliased to https://pickle-pro-peach.vercel.app. Verified there: auction page unchanged (Season 2, 28 teams, live); `/fixtures` shows *Coming soon* (Render not updated yet); `/fixtures?demo=1` runs the 3D arena with the 🎵 Music button; `/sounds/*.mp3` served as audio, unknown sound files 404.
+- Still pending: **push to `main`** so Render gets the match-draw server (real `/fixtures`), and git matches what is live. Nothing committed.
+
+**Earlier — as of 2026-11-14 (evening) — lag fix + real sounds on a preview**
+- Preview with the lag fix and **all 21 real sounds** (incl. dhol music): https://pickle-n8luwth7g-sp-tech3.vercel.app/fixtures?demo=1 (SP TECH Vercel login). **Production still has the earlier build** (no sounds, no lag fix) until the next `vercel deploy --prod`.
+- The 4 Pixabay files were downloaded through the owner's Chrome (Pixabay blocks scripts) and processed like the rest: pop 0.45 s (one clean paddle hit cut from a 2-min game recording), dhol-hit 7 s (played as a 2.5 s burst per reveal), music 59 s stereo, dhols 6 s. All 21 files = 2.2 MB.
+- Verified: all 17 recorded files decode in the browser with the right lengths/levels; a full match with sound on runs with no errors; preview serves `/sounds/*.mp3` as audio. Not verified: how it sounds/feels on a real phone (can't listen here); smoothness re-measurement (the browser pane was hidden).
+
+**As of 2026-11-14 (latest) — client in PRODUCTION, server not yet**
+- **Vercel production** now serves this build (`npx vercel deploy --prod`, deployment `pickle-ahkbxsvjr`, aliased to https://pickle-pro-peach.vercel.app). Auction pages verified unchanged (Season 2 draw complete, live, viewers). https://pickle-pro-peach.vercel.app/fixtures?demo=1 runs the 3D demo for anyone (no login).
+- **Render (server) is still the old version** until the code is pushed to `main`: real `/fixtures`, `/fixtures/admin`, `/fixtures/screen` show **"Coming soon — The match draw"** (with a *Watch the demo* button); the host page says the server needs the update. Meanwhile a match-draw page counts in the auction's "watching" number (old server puts it in the auction room) — goes away with the server update.
+- Production now differs from git `main` (code is uncommitted): **commit + push to `main`** to bring Render up to date and keep git in step with what's live.
+
+**As of 2026-11-14 (later) — Match draw: Smash Arena 3D + logos (not committed yet)**
+- The match draw (see 2b) now runs as **Smash Arena 3D** with team logos/colours and Excel/Word/PDF import incl. logos; the 2D arena stays as automatic fallback. All **uncommitted** in the working tree (owner does all git).
+- Vercel **preview**: see the latest link in the change log entry below (SP TECH Vercel login needed). On a preview only the **demo** works (`/fixtures?demo=1`, `/fixtures/admin?demo=1`, `/fixtures/screen?demo=1`) until the server is pushed; the demo uses placeholder team names and generated badges.
+- **Waiting for the organisers' final file** (team names, logos, players with category; some players were replaced). Load it in `/fixtures/admin` → check the table → Save. If a logo is missing or wrong, tap it.
+- To go live: commit + push to `main` (Render redeploys the server, Vercel the client — or the Vercel prod deploy in the deployment section).
+- Verified locally: 3D show desktop + 375 px phone (theatre, all phases, framing), host editor with logos/colours, import of Excel (table + list), Word, CSV/text and PDF (incl. logos), production build. **Server tests: 1,038/1,038 pass.**
+- Not verified: 3D smoothness on real low-end phones (lighter mode is used on touch screens; 2D fallback exists), sound on real phones, the organisers' real file (not received yet).
 
 **As of 2026-10-12**
 - GitHub `main` = `3636a9b` — pushed; CI green; Render and Vercel serve it.
@@ -231,6 +330,64 @@ Host "ready check" panel (server awake, test sound), real recorded slot sound fi
 ## Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-16 — Main link = match draw; auction moved to /auction
+- `client/src/main.jsx`: `/` → match-draw audience, `/admin` → match-draw host, `/tv` (`/screen`) → match-draw TV; `/auction`, `/auction/admin`, `/auction/tv` → team auction; old `/fixtures…` and `/kids…` links still work.
+- Audience pages no longer show the module bar (the main link is only the match draw); host pages keep **Match Draw | Team Auction** (`ModuleNav.jsx`). Match-draw TV QR = the main link; auction TV QR + label = `/auction`. Host buttons (Audience view / TV view) follow the new paths.
+- SIT-061 checks the new paths. Preview https://pickle-ppovj6s3o-sp-tech3.vercel.app; production not updated (needs the server push first).
+
+### 2026-11-16 — Demo removed, host Restart, calmer crowd, clearer logos, draw-day hardening
+- **Demo mode removed** (`client/src/cup/demo.js` deleted; no `?demo=1`; leftovers in browsers are cleaned on load).
+- **↺ Restart draw** on the host page (Tools): `POST /new { keepTeams: true }` starts a fresh draw with the same teams, logos and settings; refused during a show; host types RESTART. *Start a new match draw* (empty) now needs NEW typed. Test added (`cup.test.js`, 13/13).
+- **Calmer crowd** (`sfx.js`): no constant crowd bed — a soft murmur only during the hunt; short, quieter cheers; no cheer on the VS slam; **👥 Crowd on/off** next to **🎵 Music** (per device).
+- **Clearer logos**: crests and emblems show the whole square logo on a rounded plate with a light frame (a circle cut off the team names), crests lean towards the camera, logos kept under the bloom threshold, higher texture filtering; 2D logos rounded squares too; checkerboard backgrounds cleaned in `m01`, `m18`, `m23`.
+- **Bugs found by the draw-day rehearsal, fixed:**
+  - *"All N matches are set!" could stay on screen forever* (TV!) when any update arrived within 5 s of it (a result, a reconnect) — its hide timer was cancelled. Moment timers now live until they fire (`Moments.jsx`); the champions overlay no longer restarts its timers on every update.
+  - *Overlays from the previous draw survived a Restart* — a new draw id now clears every overlay.
+  - *The show could stall or skip its VS card* when frames stop (arena scrolled off screen, background tab, throttled phone): every 3D tween now also finishes by the clock (`stage3d.js`), so screens keep the server's schedule.
+  - HUD flashed "Waiting for match 3 of 2…" for an instant as a match started — it now names the running match.
+  - Host: the Draw button stays locked from "accepted" until the live state shows the show (no scary "still running" error on a quick second tap); locking the knockout with undecided league matches (a 3–3 needing a decider) asks first.
+  - Phones: 🎵 / 👥 switches are icon-only under 560 px so the arena bar fits one row.
+  - A phone that watched a rehearsal no longer shows those old matches on the day: the remembered state (`cup-state-v2`) is only used if under 10 minutes old.
+  - While the free server wakes up, pages say so after 5 s ("Waking up the server — the first visit can take up to a minute") instead of looking stuck.
+  - Reveal buzz only after the viewer has tapped (no browser warnings).
+- `client/vercel.json`: `/season2/*` excluded from the SPA fallback (a missing logo is a 404, not HTML). Outdated config test SIT-061 rewritten to check behaviour.
+- Preview https://pickle-iq56c01hx-sp-tech3.vercel.app; **production deployed** (`pickle-de9nz1s2o` → https://pickle-pro-peach.vercel.app). Server (Render) unchanged until the push to `main`.
+
+### 2026-11-15 — Organisers' final teams + logos, host-only draw, TV view, module nav
+- `client/src/cup/season2.json` (28 + 4 teams from the updated Excel with replacements; ages/phones/payments ignored) and `client/public/season2/logos/*.webp` (32 team logos from the organisers' Drive + ICC shield). `core.js`: a logo may be `s:<file>` (bundled) besides an uploaded hash; `looks.jsx` maps it to `/season2/logos/<file>`. Host: **⭐ Load ICC Season 2 teams**. Demo uses the real teams (demo data version 3).
+- Audience never gets draw controls: `DemoBar` (demo helpers) moved to the host page; audience demo shows a note + *Open host view*.
+- "Big screen"/projector renamed **TV view**; routes `/tv` and `/fixtures/tv` (old `/screen` paths still work).
+- New `client/src/ModuleNav.jsx`: **Team Auction | Match Draw** bar on top of the auction and match-draw audience + host pages (replaces the auction host's "Match draw" button).
+- Preview https://pickle-7z4re3be0-sp-tech3.vercel.app; production not updated.
+
+### 2026-11-14 — Production deploy: smoother 3D + real sounds
+- Owner approved: `npx vercel deploy --prod --yes --scope sp-tech3` → https://pickle-pro-peach.vercel.app (deployment `pickle-ikvg63b2k`). Verified live (auction unchanged, match-draw coming-soon, demo 3D + sounds). Server (Render) unchanged until the push.
+
+### 2026-11-14 — Smoother 3D + real stadium sounds (preview)
+- Lag fixes in `stage3d.js` / `SmashArena.jsx` / `cup.css` (adaptive quality, pre-compiled effects, no allocations mid-show, pause behind VS / off-screen, layered overlay text, fewer re-renders). Measured before: two hitches of 83 ms and 117 ms at the impacts — caused by repainting glowing text; fixed with own layers.
+- Real sounds: `client/public/sounds/` (17 Mixkit files, 1.2 MB) + `client/src/cup/sfx.js` (crowd bed, music with ducking, one-shots per moment, synthesized fallback); `sound.js` exports `audioContext`, `playable`, `trackSound`. 🎵 Music toggle on the arena (audience, big screen) and the host draw desk. `client/vercel.json`: `/sounds/*` no longer falls back to the app page.
+- Then added the 4 Pixabay files (pop, dhol-hit, music, dhols); preview https://pickle-n8luwth7g-sp-tech3.vercel.app. Production not updated.
+
+### 2026-11-14 — Client deployed to Vercel production (server pending)
+- On the owner's request: `npx vercel deploy --prod --yes --scope sp-tech3` → https://pickle-pro-peach.vercel.app (deployment `pickle-ahkbxsvjr`). Not committed/pushed (owner does git).
+- Added a graceful fallback for that gap: if `/api/fixtures/state` answers 404 (server not updated), the match-draw pages show "Coming soon" (+ demo button; host page explains the server update) instead of "Connecting…" forever.
+- Verified on production: auction home unchanged and live; `/fixtures` shows Coming soon; `/fixtures?demo=1` loads the 3D arena (no app errors; the only 404s are the expected match-draw API calls).
+- `.claude/launch.json`: new `client-prod` entry (vite preview of the production build on :4173) for local checks.
+
+### 2026-11-14 — Smash Arena 3D, team logos & colours, Excel/Word import
+- **Show:** the match draw is now a 3D stadium (three.js 0.186.1): crests per team (colour + logo + name), spotlight hunt, lock-on, paddle-cam slow-motion smash, chase camera, shatter, logo rise, logos collide → VS. Six pickleball shots (fireball, thunder, laser, rocket, sky lob, banana curve) + "last two standing". Timing: strike 3.8 s, VS 7.8 s, fate 2.6 s (`TIMING` in `core.js`, shared with the server). 2D arena kept as fallback (no WebGL / GPU loss / `?2d=1`).
+- **Team looks:** each team has `color` (default palette, or the logo's main colour) and `logo` (content hash). New `cuplogos` collection; routes `PUT /logos`, `PATCH /looks`, public cached `GET /logo/:hash`. Logos/colours can change any time; names/players lock when the arena opens. Logos shown on VS, tie cards, bracket, team cards, champions. Generated badges for teams without a logo.
+- **Import:** `importTeams.js` reads PDF / .xlsx / .docx / CSV / text incl. embedded logos (row/card matching); bulk "Upload logos" by file name; host editor has logo + colour columns. `fflate` 0.8.3 added (unzip). Import and 3D code are lazy chunks, excluded from the phone precache.
+- **Demo:** 28 placeholder team names (Smash Titans, Dink Dynasty, …) + 4 kids teams with generated badges.
+- **Preview:** https://pickle-98th39ecp-sp-tech3.vercel.app/fixtures?demo=1 (host: `/fixtures/admin?demo=1`, big screen: `/fixtures/screen?demo=1`; SP TECH Vercel login).
+- **Tests:** `cup.test.js` now 11 (new: team colours/looks rules; logo upload → stored once, PNG/JPEG/WebP only, cached serving, auth). Full suite 1,038/1,038.
+
+### 2026-11-14 — New module: Match draw (fixtures) with the arena show
+- **What:** separate module at `/fixtures` (+ `/fixtures/admin`, `/fixtures/screen`, Main/Kids switch): upload the final-teams PDF → draw every match live with an animated arena show (6 weapons + "last two standing", crosshair hunt, strikes, VERSUS splash with the six games A/B C/D A/C B/D A/D B/C and real names) → results per game → standings → knockout (main: QF 1v8 2v7 3v6 4v5 → SF → Final; kids: Final 1v2 + 3rd place 3v4) → champions screen. Fixtures PDF export. `?demo=1` runs it all in the browser with sample teams.
+- **Server:** `server/src/fixtures.js` (routes `/api/fixtures`, `/api/kids/fixtures`; secure picks; SHA-256 seal; reveal timers rescheduled on boot), `Cup` model, sockets with `auth.module = 'cup'` join `cup:<event>`; viewer counts and reactions now per room (auction rooms unchanged). Shared rules in `client/src/cup/core.js`.
+- **Client:** `client/src/cup/*` (pages, arena, canvas effects, VS, moments, boards, PDF import via `pdfjs-dist` 4.10.38 — host only, excluded from PWA precache), new sounds in `sound.js` (riser, slam, heartbeat, lock-on, whoosh, thunk, twang, thunder, boom, launch, fall, ricochet, zap, versus, arena open). Small shared changes: `Header` takes a `kicker`, `Login` exported with a title, auction host header has a **Match draw** link, routes in `main.jsx`.
+- **Tests:** new `server/test/cup.test.js` (9 tests: unique pairing over 30 full draws, weapons never repeat within 3, hidden-until-reveal, undo rules, outcome/3–3 decider, results validation, standings → QF → SF → Final and downstream protection, kids final/3rd place, host-route auth, full live flow over the socket with seal verification and auction isolation).
 
 ### 2026-10-13 — PDF shows age + tap-to-call number per player; contacts tool
 - PDF: under each name, Age and the phone number as a tel: link (+91 added to 10-digit numbers). Data comes from /admin (host only) as details; public state never has it.

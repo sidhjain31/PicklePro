@@ -27,6 +27,8 @@ export default defineConfig({
       workbox: {
         // Offline = app shell only. The draw itself always needs the server.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The PDF reader is host-only and large: never precache it on every phone.
+        globIgnores: ['**/pdf.worker*', '**/pdf-*.js', '**/stage3d-*.js', '**/importTeams-*.js'],
         navigateFallbackDenylist: [/^\/api/, /^\/socket\.io/],
       },
     }),

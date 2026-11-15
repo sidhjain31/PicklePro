@@ -7,13 +7,13 @@ import { ResumeSoundPrompt, Stage } from './Stage.jsx';
 import { useLive } from './useLive.js';
 import { pageUrl } from './event.js';
 
-// Projector / TV view at /screen: a giant reel, the current category's picks, and a QR code
+// Team auction TV view at /auction/tv: a giant reel, the current category's picks, and a QR code
 // so the room can follow on their phones. Read-only, like the audience page.
 export function Screen() {
   const { state, connected, show, finish, onReaction, announce } = useLive('screen');
   const board = useLeaderboard(state);
   useWakeLock(Boolean(state && state.status !== 'COMPLETED'));
-  const joinUrl = `${location.origin}${pageUrl('/')}`;
+  const joinUrl = `${location.origin}${pageUrl('/auction')}`;
   const [qr, setQr] = useState('');
   useEffect(() => {
     QRCode.toDataURL(joinUrl, { margin: 1, width: 360, color: { dark: '#0b1f52', light: '#ffffff' } }).then(setQr, () => {});
@@ -89,7 +89,7 @@ export function Screen() {
           <section className="screen-join">
             {qr && <img src={qr} alt={`QR code for ${joinUrl}`} />}
             <p>Watch on your phone</p>
-            <strong>{location.host}</strong>
+            <strong>{location.host}/auction</strong>
           </section>
         </aside>
       </main>

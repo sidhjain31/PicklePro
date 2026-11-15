@@ -409,5 +409,193 @@ export function whistleAndTrophy() {
 // A tiny pop for an emoji reaction.
 export const plip = () => tone({ freq: 1400, to: 2100, type: 'sine', ms: 50, gain: 0.015 });
 
+// ---------- Match draw (arena) effects ----------
+// Same rules as above: synthesized, through the master gain, cancelled by mute.
+
+// Filtered noise whose filter frequency glides from -> (mid) -> to over the envelope.
+function sweep({ type = 'bandpass', from, mid, to, q = 1, env, delay = 0 }) {
+  const a = ready();
+  if (!a) return () => {};
+  const t = a.currentTime + delay / 1000;
+  const end = env.at(-1)[0] / 1000;
+  const src = a.createBufferSource();
+  src.buffer = noiseBuffer(a);
+  src.loop = true;
+  const f = a.createBiquadFilter();
+  f.type = type;
+  f.Q.value = q;
+  f.frequency.setValueAtTime(from, t);
+  if (mid) f.frequency.exponentialRampToValueAtTime(mid, t + end / 2);
+  f.frequency.exponentialRampToValueAtTime(to, t + end);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  for (const [ms, v] of env) g.gain.linearRampToValueAtTime(v, t + ms / 1000);
+  src.connect(f).connect(g).connect(master);
+  src.start(t);
+  src.stop(t + end + 0.05);
+  return () => {
+    try {
+      g.gain.cancelScheduledValues(a.currentTime);
+      g.gain.setTargetAtTime(0.0001, a.currentTime, 0.04);
+      src.stop(a.currentTime + 0.2);
+    } catch { /* already stopped */ }
+  };
+}
+
+// Rising whoosh under a title card ("MATCH 4 — THUNDERSTRIKE").
+export function riser(ms = 1200) {
+  sweep({ from: 300, to: 4200, q: 1.4, env: [[ms * 0.8, 0.12], [ms, 0.0001]] });
+  tone({ freq: 180, to: 720, type: 'sawtooth', ms, gain: 0.025, attack: ms / 1000 * 0.7 });
+}
+
+// Heavy hit when a title or card lands.
+export function slam(power = 1) {
+  tone({ freq: 140, to: 38, type: 'sine', ms: 420, gain: 0.32 * power, attack: 0.002 });
+  noiseShape({ type: 'highpass', freq: 1800, env: [[3, 0.18 * power], [90, 0.0001]] });
+  noiseShape({ type: 'lowpass', freq: 500, env: [[5, 0.16 * power], [380, 0.0001]] });
+}
+
+// Crosshair gliding over a team tile.
+export const scanTick = () => tone({ freq: 1900, to: 1500, type: 'sine', ms: 28, gain: 0.025 });
+
+// Tension: a heartbeat whose pace the caller raises as the reveal nears. Returns { setRate, stop }.
+export function heartbeat() {
+  let bpm = 70;
+  let stopped = false;
+  const beat = () => {
+    if (stopped || !ready()) return;
+    tone({ freq: 70, to: 40, type: 'sine', ms: 140, gain: 0.22, attack: 0.003 });
+    later(() => tone({ freq: 60, to: 38, type: 'sine', ms: 120, gain: 0.14, attack: 0.003 }), 170);
+  };
+  let id;
+  const loop = () => {
+    beat();
+    id = later(loop, 60000 / bpm);
+  };
+  loop();
+  const stop = () => {
+    stopped = true;
+    clearTimeout(id);
+    timers.delete(id);
+  };
+  const untrack = track(stop);
+  return { setRate(b) { bpm = Math.max(50, Math.min(190, b)); }, stop: untrack };
+}
+
+// Target locked: two fast beeps and a held tone.
+export function lockOn() {
+  tone({ freq: 1760, type: 'square', ms: 60, gain: 0.05 });
+  tone({ freq: 1760, type: 'square', ms: 60, gain: 0.05, delay: 90 });
+  tone({ freq: 2349, type: 'square', ms: 200, gain: 0.05, delay: 180 });
+}
+
+// Something fast flying past.
+export function whoosh(ms = 520) {
+  sweep({ from: 500, mid: 2600, to: 700, q: 2, env: [[ms * 0.55, 0.16], [ms, 0.0001]] });
+}
+
+// A dart or arrow biting into the board.
+export function thunk() {
+  const a = ready();
+  if (a) knock(a, a.currentTime, 0.16, 0.55);
+  tone({ freq: 160, to: 62, type: 'triangle', ms: 200, gain: 0.3 });
+  noiseShape({ type: 'bandpass', freq: 420, q: 3, env: [[4, 0.16], [160, 0.0001]] });
+  // The shaft quivering.
+  for (let i = 0; i < 5; i++) tone({ freq: 210, to: 190, type: 'triangle', ms: 70, gain: 0.04 / (i + 1), delay: 120 + i * 70 });
+}
+
+// Bow string released.
+export function twang() {
+  tone({ freq: 196, to: 150, type: 'triangle', ms: 420, gain: 0.16, attack: 0.002 });
+  tone({ freq: 392, to: 300, type: 'sine', ms: 260, gain: 0.05, attack: 0.002 });
+  whoosh(420);
+}
+
+// Lightning: a sharp crack, then the rumble rolling away.
+export function thunder() {
+  noiseShape({ type: 'highpass', freq: 2500, env: [[2, 0.4], [60, 0.05], [140, 0.0001]] });
+  noiseShape({ type: 'bandpass', freq: 1200, q: 0.6, env: [[5, 0.28], [260, 0.02], [400, 0.0001]] });
+  sweep({ type: 'lowpass', from: 900, to: 90, q: 0.5, env: [[40, 0.4], [600, 0.28], [1300, 0.14], [2600, 0.0001]] });
+  tone({ freq: 55, to: 30, type: 'sine', ms: 1400, gain: 0.25 });
+}
+
+// Static crackle while the storm gathers (short).
+export function crackle() {
+  for (let i = 0; i < 6; i++) {
+    later(() => noiseShape({ type: 'highpass', freq: 3500, env: [[2, 0.05 + Math.random() * 0.05], [25, 0.0001]] }), i * 45 + Math.random() * 30);
+  }
+}
+
+// Explosion: crack, fireball roar and a sub-bass drop.
+export function boom(power = 1) {
+  noiseShape({ type: 'highpass', freq: 1500, env: [[2, 0.3 * power], [80, 0.0001]] });
+  sweep({ type: 'lowpass', from: 2200, to: 120, q: 0.4, env: [[10, 0.5 * power], [500, 0.25 * power], [1600, 0.0001]] });
+  tone({ freq: 90, to: 28, type: 'sine', ms: 900, gain: 0.4 * power, attack: 0.003 });
+}
+
+// Missile / rocket launch roar, rising.
+export function launch(ms = 700) {
+  sweep({ type: 'bandpass', from: 250, to: 1800, q: 0.8, env: [[80, 0.14], [ms, 0.2], [ms + 120, 0.0001]] });
+  tone({ freq: 70, to: 140, type: 'sawtooth', ms, gain: 0.04 });
+}
+
+// Falling-from-the-sky whistle (meteor).
+export function fall(ms = 800) {
+  tone({ freq: 2200, to: 260, type: 'sine', ms, gain: 0.06, attack: 0.05 });
+  sweep({ type: 'lowpass', from: 400, to: 2500, q: 0.6, env: [[ms * 0.9, 0.18], [ms, 0.0001]] });
+}
+
+// Pickleball: paddle smash, then a ricochet "pyew" off a wall.
+export function smashHit() {
+  tone({ freq: 520, to: 210, type: 'triangle', ms: 70, gain: 0.22, attack: 0.001 });
+  noiseShape({ type: 'bandpass', freq: 1700, q: 2, env: [[2, 0.18], [45, 0.0001]] });
+}
+export function ricochet() {
+  tone({ freq: 420, to: 260, type: 'triangle', ms: 50, gain: 0.14, attack: 0.001 });
+  tone({ freq: 2800, to: 900, type: 'sine', ms: 240, gain: 0.05, delay: 20 });
+}
+
+// Electric arc between the last two teams.
+export function zap(ms = 400) {
+  const steps = Math.max(3, Math.round(ms / 40));
+  for (let i = 0; i < steps; i++) {
+    const f = 80 + Math.random() * 260;
+    tone({ freq: f, to: f * (0.7 + Math.random() * 0.6), type: 'sawtooth', ms: 45, gain: 0.04, delay: i * 40 });
+  }
+  noiseShape({ type: 'highpass', freq: 3000, env: [[10, 0.06], [ms, 0.04], [ms + 60, 0.0001]] });
+}
+
+// VERSUS: the two teams collide. Sub drop, crash and a metallic ring.
+export function versus() {
+  slam(1.3);
+  sweep({ type: 'bandpass', from: 5200, to: 1800, q: 0.7, env: [[8, 0.22], [900, 0.04], [1500, 0.0001]] });
+  for (const [f, g] of [[523, 0.06], [784, 0.05], [1047, 0.04], [1568, 0.025]]) {
+    tone({ freq: f, type: 'triangle', ms: 1500, gain: g, attack: 0.004 });
+    tone({ freq: f * 2.76, type: 'sine', ms: 700, gain: g * 0.3, attack: 0.002 });
+  }
+  later(cheer, 250);
+}
+
+// The arena opens: drum hits building up, then a horn chord.
+export function arenaOpen() {
+  [0, 260, 520, 700, 840, 960].forEach((d, i) => later(() => {
+    tone({ freq: 110 - i * 6, to: 50, type: 'sine', ms: 260, gain: 0.26, attack: 0.002 });
+    noiseShape({ type: 'lowpass', freq: 700, env: [[3, 0.09], [140, 0.0001]] });
+  }, d));
+  for (const f of [262, 330, 392, 523]) {
+    tone({ freq: f, type: 'sawtooth', ms: 1300, gain: 0.03, delay: 1150, attack: 0.04 });
+    tone({ freq: f / 2, type: 'triangle', ms: 1300, gain: 0.06, delay: 1150, attack: 0.04 });
+  }
+  later(cheer, 1300);
+}
+
+// ---------- Access for recorded sounds (cup/sfx.js) ----------
+// The context (created suspended if needed, for decoding files) and the master gain everything
+// must go through, so mute keeps silencing recorded sounds too.
+export const audioContext = () => ensureContext();
+export const playable = () => (wanted && running() ? { ctx, master } : null);
+// Register a long-running sound so stopAll() (mute) stops it.
+export const trackSound = stop => track(stop);
+
 // Diagnostics (used by tests/QA): how many long-running sounds and scheduled sound timers exist.
 export const activeSounds = () => ({ live: live.size, scheduled: timers.size, context: ctx?.state ?? 'none', status: soundStatus() });
