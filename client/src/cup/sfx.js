@@ -12,6 +12,10 @@ import * as synth from '../sound.js';
 const FILES = ['crowd', 'open', 'title', 'drumroll', 'slowmo', 'fireball', 'thunder', 'laser', 'rocket', 'meteor', 'curve',
   'shatter', 'cheer', 'clash', 'whistle', 'fanfare', 'fireworks', 'pop', 'dhol-hit', 'music', 'dhols'];
 const buffers = new Map(); // name -> AudioBuffer | null (null = missing)
+// Loop windows [start, end] in seconds for files that hold two copies of one period: looping a
+// window inside real audio avoids the MP3 padding gap at the file edges. music = the vocal-free
+// 16-beat dhol groove (96 BPM) from tools/audio/devocal_music.py.
+const LOOPS = { music: [0.08, 0.08 + 441024 / 44100] }; // 441024 samples = one 16-beat period
 let loading = null;
 
 // Per-device on/off switches (default on).
@@ -75,6 +79,11 @@ function play(name, { gain = 1, rate = 1, delay = 0, offset = 0, loop = false, a
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.loop = loop;
+  const win = loop && LOOPS[name];
+  if (win && buf.duration > win[1]) {
+    src.loopStart = win[0];
+    src.loopEnd = win[1];
+  }
   src.playbackRate.value = rate;
   const g = ctx.createGain();
   const t = ctx.currentTime + delay / 1000;

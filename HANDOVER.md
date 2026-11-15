@@ -233,10 +233,10 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 
 ### 5.6 Sound (`client/src/cup/sfx.js`)
 - 21 recorded files in `client/public/sounds/` (2.2 MB), fetched **only on devices with sound on**, never precached; played through `sound.js`'s master gain (the 🔊 button mutes everything instantly). Any missing/undecodable file falls back to the old synthesized sound.
-- **Layers:** music bed (dhol + electronic, 0.4, ducks under big moments); **crowd murmur only while the spotlight hunts** (0.1, fades out 1.6 s after); one-shots per moment: arena open, title, drum roll (hunt), slow-mo toss, paddle pop (skips 35 ms encoder padding), flight sound per shot, shatter + short cheer + 2.5 s dhol burst per reveal, metal clash (collide; VS adds nothing), whistle + fanfare (all set), fanfare + fireworks + dhols (champions), short cheer per result. Cheers are short faded bursts (0.3–0.55 gain, 1.2–3.5 s).
+- **Layers:** music bed (0.4, ducks under big moments) = a **vocal-free 16-beat dhol/electronic groove** (96 BPM, exactly 441024 samples = 10.0005 s) cut from the drop of "Dhol And Neon"; the file holds two copies and `sfx.js` loops the window `LOOPS.music` inside real audio, so there is no MP3-padding gap (checked: wrap step 0.002, repeats sample-identical). The track's female vocal (and the stinger's) was removed at the owner's request; **crowd murmur only while the spotlight hunts** (0.1, fades out 1.6 s after); one-shots per moment: arena open, title, drum roll (hunt), slow-mo toss, paddle pop (skips 35 ms encoder padding), flight sound per shot, shatter + short cheer + 2.5 s dhol burst per reveal (`dhol-hit` = one bar of the same vocal-free groove, 2.8 s), metal clash (collide; VS adds nothing), whistle + fanfare (all set), fanfare + fireworks + dhols (champions), short cheer per result. Cheers are short faded bursts (0.3–0.55 gain, 1.2–3.5 s).
 - **Per device switches:** 🎵 Music and 👥 Crowd (localStorage `team-draw:music`, `team-draw:crowd`), icon-only under 560 px.
 - **Sources/licences** (checked 2026-11-14): Mixkit (Sound Effects Free License, commercial use inside a product OK): crowd 2097, open 2900, title 2918, drumroll 577, slowmo 1486, fireball 1347, thunder 1300, laser 1287, rocket 1714, meteor 3024, curve 1493, shatter 1693, cheer 462, clash 1687, whistle 614, fanfare 2293, fireworks 524. Pixabay (Pixabay Content License, free commercial use, no credit required): `pop` = "PickleBall" (freesound_community 24267), `dhol-hit` = "Dhol And Neon (15 sec stinger)" (kaazoom 564695), `music` = "Dhol And Neon (1 min edit)" (kaazoom 564697), `dhols` = "Indian Wedding Dhols" (freesound_community 52474).
-- **Processing:** `tools/audio/process.mjs` (trim, mono 96 kbps / music stereo 112 kbps, loudness levelling, fades, seamless crowd loop).
+- **Processing:** `tools/audio/process.mjs` (trim, mono 96 kbps / music stereo 112 kbps, loudness levelling, fades, seamless crowd loop). Music + reveal hit since 2026-11-16: `towav.mjs` (MP3 → WAV) → `devocal_music.py` (finds the vocal-free section, exact 16-beat loop, crossfaded seam, one-bar hit, matches the old loudness, prints the loop length for `LOOPS.music`) → `encode.mjs` (WAV → MP3: music 112 kbps stereo, hit 96 kbps mono). The vocal was located with spectrograms: wavy pitched lines with vibrato (~350 Hz, ~950–1100 Hz) in 0–44 s; 45–57 s is pure beat.
 
 ### 5.7 Live-ness and robustness details
 - First paint: last state from localStorage **only if < 10 minutes old** (`cup-state-v2`), never a running show; then HTTP `/state`, then the socket.
@@ -307,6 +307,8 @@ Main/Kids switch; Setup (name, spin length, categories/order, lists by paste or 
 | 21 | **Square logo plates** (not circles), lean-back crests, logos below the bloom threshold, cleaned checkerboards | Owner: "ensure in 3D the logos are seen clearly" — circles cut off team names; bloom blurred white logos. |
 | 22 | Draw-day hardening (tweens end by the clock, overlay timers, 10-min cache, waking note, Draw-button lock, knockout-lock confirm) | Found by the real-speed rehearsal; owner: "make it so robust that I don't have any issues on draw day". |
 | 23 | Production deploys and pushes only when asked | Owner's standing rule. |
+| 24 | **No female vocal anywhere**: music = the track's vocal-free drop as a seamless 10 s loop; reveal hit = one bar of it | Owner: "the girl sound in music I don't want… crop that"; the same voice also opened the reveal stinger. |
+| 25 | Native resolution on every screen, 640 px logos | Owner: blur on the iPhone, then "resolution at 2040P on every screen". |
 
 ### Team Auction (session 1)
 | Decision | Why |
@@ -370,6 +372,7 @@ Main/Kids switch; Setup (name, spin length, categories/order, lists by paste or 
 | Reading the admin session token from a file was blocked by the tool safety layer | Credential handling rules | Scripts that log in themselves (`tools/draw-day/*`) |
 | **3D very blurry on the owner's iPhone** (first real-phone test, 2026-11-16) | Phones were capped at 1.3× on 3× screens, edge smoothing was off on phones, and the auto-quality treated a 30 fps cap as overload and dropped to 0.75× | Phones 2× with MSAA, floor 1.3×, step down only under ~24 fps for 2 s; bigger crest name labels |
 | Owner wanted "max resolution on every screen" | Renderer still capped (2× phones, 1.75× computers); logos only 320 px | Native `devicePixelRatio` (≤ 3) everywhere; logos regenerated at 640 px from the originals (`process_logos.py … 640`, checkerboards re-cleaned) |
+| Girl's voice in the background music (and in the reveal stinger) | Original track "Dhol And Neon" has a female vocal for its first ~44 s; the stinger starts with it | New music = vocal-free 16-beat drop loop with exact loop points; new reveal hit = one bar of it (`tools/audio/devocal_music.py`) |
 | 3D picture stretched during the full-screen show | The canvas kept the inline size when the arena went full screen (relied only on ResizeObserver) | Explicit `stage.resize()` when theatre mode toggles (`SmashArena.jsx`) |
 
 ### Team Auction (session 1, see change log for details)
@@ -522,6 +525,12 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-16 (late night) — Female vocal removed from the music and the reveal hit
+- Owner: "the girl sound in music I don't want, rest all sound is good". Spectrograms showed the vocal (vibrato lines ~350 Hz / ~950–1100 Hz) in 0–44 s of "Dhol And Neon" and at the start of the 15-s stinger used as `dhol-hit`; 45–57 s of the track is a clean dhol/electronic beat at 96 BPM.
+- `client/public/sounds/music.mp3` = that beat as an exact 16-beat loop (441024 samples), written twice (20 s, 274 KB, was 830 KB); `sfx.js` loops `LOOPS.music = [0.08, 0.08 + 441024/44100]` inside the file (no padding gap; verified offline-rendered: seamless, sample-identical repeats). `dhol-hit.mp3` = one bar of the same beat + fade (2.8 s, 33 KB). Loudness matched to the old files. Champions `dhols` checked: no vocal, unchanged.
+- New tools: `tools/audio/towav.mjs`, `devocal_music.py`, `encode.mjs`.
+- Preview https://pickle-kp43qtrh9-sp-tech3.vercel.app; not pushed yet (owner decides).
 
 ### 2026-11-16 (night) — Sharp 3D on phones, native resolution everywhere; complete handover; tools in the repo
 - **Native resolution on every screen** (owner: "resolution at 2040P on every screen"): the 3D renders at each screen's full pixel density (`devicePixelRatio` up to 3 — a 4K TV gets 4K, an iPhone its Retina resolution); logos regenerated at **640 px** (from ~1254 px originals; 3.0 MB total, not pre-cached), `m01/m18/m23` checkerboards re-cleaned; `tools/assets/process_logos.py` takes the size (default 640).
