@@ -64,8 +64,12 @@ export async function createStage(container, { low = false, onLost } = {}) {
   } catch { /* ignore */ }
 
   // ---------- Renderer, scene, camera ----------
-  const renderer = new THREE.WebGLRenderer({ antialias: !low, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1.3 : 1.75));
+  // Every screen renders at its FULL native resolution (owner: "max resolution on every screen"):
+  // a 4K TV gets 3840×2160, an iPhone its full Retina pixels (capped at 3×), with edge smoothing.
+  // Phones skip only the glow effect. If a device really can't keep up, quality steps down below.
+  const DPR = Math.min(window.devicePixelRatio || 1, 3);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(DPR);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   renderer.domElement.className = 'stage3d-canvas';
@@ -515,7 +519,7 @@ export async function createStage(container, { low = false, onLost } = {}) {
     const frame = new THREE.Mesh(frameGeo, frameMat);
     frame.position.set(0, 0.35 + 0.98, 0.135);
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(team.name), depthWrite: false, transparent: true }));
-    label.scale.set(1.4, 0.31, 1);
+    label.scale.set(1.6, 0.35, 1);
     label.position.y = 2.15;
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: soft, color, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false }));
     glow.scale.set(3.4, 3.4, 1);
@@ -724,13 +728,18 @@ export async function createStage(container, { low = false, onLost } = {}) {
   const io = new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }, { threshold: 0.01 });
   io.observe(container);
   // Adaptive quality: if frames stay slow, step down (glow off, then lower resolution) until smooth.
-  const LEVELS = [{ pr: 1.75, bloom: true }, { pr: 1.3, bloom: false }, { pr: 1.0, bloom: false }, { pr: 0.75, bloom: false }];
-  let level = low ? 1 : 0;
+  // Steps down only on real overload (under ~24 fps for 2 s). A phone capped at 30 fps (iPhone Low
+  // Power Mode, in-app browsers like WhatsApp's) is NOT slow — treating it as slow used to drop
+  // phones to 0.75× and made everything blurry. Floors: 1.6× on phones, 1× on computers.
+  const LEVELS = low
+    ? [{ pr: DPR, bloom: false }, { pr: 2, bloom: false }, { pr: 1.6, bloom: false }]
+    : [{ pr: DPR, bloom: true }, { pr: DPR, bloom: false }, { pr: 1.5, bloom: false }, { pr: 1.25, bloom: false }, { pr: 1, bloom: false }];
+  let level = 0;
   let useBloom = Boolean(composer) && LEVELS[level].bloom;
   let ftAvg = 16.7;
   let slowFor = 0;
   const applyLevel = () => {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, LEVELS[level].pr));
+    renderer.setPixelRatio(Math.min(DPR, LEVELS[level].pr));
     useBloom = Boolean(composer) && LEVELS[level].bloom;
     resize();
   };
@@ -750,9 +759,9 @@ export async function createStage(container, { low = false, onLost } = {}) {
     t += dt;
     if (t > 2.5 && frameMs < 250) {
       ftAvg = ftAvg * 0.94 + frameMs * 0.06;
-      if (ftAvg > 26 && level < LEVELS.length - 1) {
+      if (ftAvg > 42 && level < LEVELS.length - 1) {
         slowFor += dt;
-        if (slowFor > 1.2) {
+        if (slowFor > 2) {
           level += 1;
           slowFor = 0;
           ftAvg = 16.7;

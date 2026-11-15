@@ -262,10 +262,17 @@ function Smash3D({ state, serverNow, mode = 'audience', onShow, openedAt, onFail
     };
   }, [runKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!state) return null;
   const phase = ui?.phase ?? 'idle';
-  const shot = SHOTS[ui?.weapon] ?? null;
   const theatre = mode !== 'host' && ACTIVE.has(phase) && !minimised;
+  // Full screen on/off: re-size the 3D picture to the new box at once and after the zoom-in
+  // animation, so it is never a stretched copy of the smaller inline picture (= blurry).
+  useEffect(() => {
+    const ids = [0, 120, 450].map(ms => setTimeout(() => stageRef.current?.resize(), ms));
+    return () => ids.forEach(clearTimeout);
+  }, [theatre, loaded]);
+
+  if (!state) return null;
+  const shot = SHOTS[ui?.weapon] ?? null;
   const A = teamOf(state, ui?.a);
   const B = teamOf(state, ui?.b);
   const total = state.totalTies;

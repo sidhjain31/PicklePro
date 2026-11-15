@@ -1,0 +1,1 @@
+{"name":"audio-tools","private":true,"dependencies":{"lamejs":"^1.2.1","mpg123-decoder":"^1.0.3"}}
