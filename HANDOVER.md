@@ -484,7 +484,7 @@ npm run build         # client production build (client/dist)
 ## 13. Current state, what next, limits
 
 **As of 2026-11-16 (night)**
-- `main` = `6d12e02` (+ a docs-only commit). Render and Vercel production serve it; verified live: main link = match draw, `/api/fixtures/state` 200 via Vercel, live socket receives `cup:state`, native-resolution 3D + 640 px logos served, auction under `/auction`.
+- `main` = `73ccbd8` (+ docs-only commits). Live: voice-free music + reveal hit. Render and Vercel production serve it; verified live: main link = match draw, `/api/fixtures/state` 200 via Vercel, live socket receives `cup:state`, native-resolution 3D + 640 px logos served, auction under `/auction`.
 - **Production data right now:** Main = 28 Season 2 teams loaded by the owner, arena open, **1 test match drawn** → press **↺ Restart draw** before the real event. Kids = empty → **Load ICC Season 2 teams → Save** in Kids too.
 - Local laptop database has Season 2 teams loaded in Main and Kids (setup) from the rehearsals.
 - Tests 1040/1040; production build clean.
@@ -530,7 +530,7 @@ Newest first. Add an entry for every change.
 - Owner: "the girl sound in music I don't want, rest all sound is good". Spectrograms showed the vocal (vibrato lines ~350 Hz / ~950–1100 Hz) in 0–44 s of "Dhol And Neon" and at the start of the 15-s stinger used as `dhol-hit`; 45–57 s of the track is a clean dhol/electronic beat at 96 BPM.
 - `client/public/sounds/music.mp3` = that beat as an exact 16-beat loop (441024 samples), written twice (20 s, 274 KB, was 830 KB); `sfx.js` loops `LOOPS.music = [0.08, 0.08 + 441024/44100]` inside the file (no padding gap; verified offline-rendered: seamless, sample-identical repeats). `dhol-hit.mp3` = one bar of the same beat + fade (2.8 s, 33 KB). Loudness matched to the old files. Champions `dhols` checked: no vocal, unchanged.
 - New tools: `tools/audio/towav.mjs`, `devocal_music.py`, `encode.mjs`.
-- Preview https://pickle-kp43qtrh9-sp-tech3.vercel.app; not pushed yet (owner decides).
+- Preview https://pickle-kp43qtrh9-sp-tech3.vercel.app; then **pushed (`73ccbd8`)** at the owner's request — live ~20 s later (verified: new `music.mp3` 280 KB and `dhol-hit.mp3` 34 KB served as audio, loop code in the bundle, server healthy).
 
 ### 2026-11-16 (night) — Sharp 3D on phones, native resolution everywhere; complete handover; tools in the repo
 - **Native resolution on every screen** (owner: "resolution at 2040P on every screen"): the 3D renders at each screen's full pixel density (`devicePixelRatio` up to 3 — a 4K TV gets 4K, an iPhone its Retina resolution); logos regenerated at **640 px** (from ~1254 px originals; 3.0 MB total, not pre-cached), `m01/m18/m23` checkerboards re-cleaned; `tools/assets/process_logos.py` takes the size (default 640).
