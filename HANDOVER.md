@@ -565,6 +565,7 @@ Newest first. Add an entry for every change.
 - **HD**: removed the permanent `will-change` on zooming text/logos (blurry on iPhones); uploaded logos 640 px (JPEG fallback when Safari's PNG would pass 400 KB).
 - **Poster**: `marketing/match-draw-poster.html/.png` (1080×1350, teaser "Who will you face?", Wed 18 Nov 6:30 PM, Find my match + Alert me, QR → main link) + `match-draw-whatsapp.txt`.
 - `.claude/launch.json`: `server-stable` (no watch) for testing.
+- **Pushed `a824625`** (owner: "push to main dont ask"); live ~30 s later — verified: new bundle (Alert me, Drawn counter, Matches PDF, final-list check, Amit Gala), new `music.mp3` (cut version) and original `dhol-hit.mp3` served, server healthy.
 
 ### 2026-11-16 (late night) — Female vocal removed from the music and the reveal hit
 - Owner: "the girl sound in music I don't want, rest all sound is good". Spectrograms showed the vocal (vibrato lines ~350 Hz / ~950–1100 Hz) in 0–44 s of "Dhol And Neon" and at the start of the 15-s stinger used as `dhol-hit`; 45–57 s of the track is a clean dhol/electronic beat at 96 BPM.
