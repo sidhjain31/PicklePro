@@ -14,10 +14,10 @@ import { MyMatchAlert, followedTeam } from './MyMatch.jsx';
 import { Moments } from './Moments.jsx';
 
 const SWITCH = [
-  { key: 'main', label: 'Main', api: '/api/fixtures/state' },
+  { key: 'main', label: 'Adults', api: '/api/fixtures/state' },
   { key: 'kids', label: 'Kids', api: '/api/kids/fixtures/state' },
 ];
-// Main / Kids match draw, plus a way back to the team auction. Badges refresh once a minute.
+// Adults / Kids match draw (both equal parts of the tournament). Badges refresh once a minute.
 export function CupSwitch() {
   const ev = useEvent();
   const [phase, setPhase] = useState({});

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { setEvent, urlFor, useEvent } from './event.js';
 
 const DRAWS = [
-  { key: 'main', label: 'Main draw', api: '/api/state' },
+  { key: 'main', label: 'Adults draw', api: '/api/state' },
   { key: 'kids', label: 'Kids draw', api: '/api/kids/state' },
 ];
 

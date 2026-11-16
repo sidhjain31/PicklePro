@@ -247,6 +247,13 @@ function TeamsDesk({ state, run, busy }) {
     await cupApi('/teams', { method: 'PUT', body: { teams: rows.map(({ name, players, color, logo, logoData }) => ({ name, players, color, logo: logoData ? null : logo })) } });
     const logos = Object.fromEntries(rows.map((r, i) => [`t${i + 1}`, r.logoData]).filter(([, v]) => v));
     if (Object.keys(logos).length) await cupApi('/logos', { method: 'PUT', body: { logos } });
+    // The organisers' list loaded: give the draw its proper name (Adults / Kids), unless the host
+    // already typed a custom one.
+    const kids = state.event === 'kids';
+    const seasonName = `ICC Season 2 · ${kids ? 'Kids' : 'Adults'} Match Draw`;
+    if (note?.file?.startsWith(SEASON2.season) && /^(icc season 2 · )?((adults|main|kids) )?match draw$/i.test(String(state.name).trim()) && state.name !== seasonName) {
+      await cupApi('/settings', { method: 'PATCH', body: { name: seasonName } });
+    }
     setDraft(null);
   });
   return (

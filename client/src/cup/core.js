@@ -41,7 +41,7 @@ export const seedCountOf = teamCount => (formatOf(teamCount) === 'qf' ? 8 : 4);
 export function newCup({ event = 'main', name } = {}) {
   return {
     event,
-    name: clean(name) || (event === 'kids' ? 'Kids Match Draw' : 'Match Draw'),
+    name: clean(name) || (event === 'kids' ? 'Kids Match Draw' : 'Adults Match Draw'),
     status: 'SETUP', // SETUP -> DRAW -> KNOCKOUT (league / done are derived)
     aimMs: 3500,
     weapon: 'auto',

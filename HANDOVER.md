@@ -320,6 +320,7 @@ Main/Kids switch; Setup (name, spin length, categories/order, lists by paste or 
 | 28 | **Find my match before the draw + 🔔 Alert me pop-up** | Owner: "notification of find my match don't work". It had no alert and only appeared after the first match. |
 | 29 | Host **final-list check** against `season2.json` | 3 players were replaced after the owner's rehearsal; the live draw still had the old names. |
 | 30 | WhatsApp **teaser poster** (curiosity + hint, date, Find my match, QR) | Owner: "surprising… curious… exciting for participants, tell about find my match". |
+| 31 | Say **Adults** (not Main); Kids shown as an equal part everywhere | Owner: "don't hide kids as small… instead of main say adults". The code key stays `main`. |
 
 ### Team Auction (session 1)
 | Decision | Why |
@@ -554,6 +555,12 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-17 (later) — "Adults" instead of "Main"; Kids equal everywhere
+- Owner: "don't hide kids as small, they are also part of the tournament; instead of main say adults".
+- Switches: **Adults matches | Kids matches** (match draw), **Adults draw | Kids draw** (auction). Default draw name for the adults event: **Adults Match Draw** (`core.js`). When the host loads the ICC Season 2 teams and saves, a default-named draw is renamed **ICC Season 2 · Adults Match Draw** / **ICC Season 2 · Kids Match Draw** (custom names are left alone).
+- Poster + WhatsApp text: "Adults & Kids · 2 live draws", two equal badges **ADULTS · 28 teams** and **KIDS · 4 teams**.
+- Internally the event key stays `main` (URLs, API, database) — only the words people see changed.
 
 ### 2026-11-17 — Final teams, music cut 0:11–0:24, Matches PDF, no match numbers/courts, alerts, reactions, HD, poster
 - **Teams** (`season2.json`, from the organisers' final adult list image; kids list image identical to the app): Dink Floyd B **Amit Gala** (was Jimit Badani), Zero Love B **Manik Midha** (was Jigar Badani), Pickle Ke Chhichhore D **Nupur Chaudhary** (was Nupur Ankur Choudhari). Host page: **final-list check** warns when a draw's saved teams differ from this list and says how to fix it.
