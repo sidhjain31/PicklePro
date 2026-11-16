@@ -22,6 +22,16 @@
       "port": 4000
     },
     {
+      "name": "server-test",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--env-file-if-exists=server/.env",
+        "--env-file-if-exists=server/.env.test",
+        "server/src/index.js"
+      ],
+      "port": 4000
+    },
+    {
       "name": "client",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

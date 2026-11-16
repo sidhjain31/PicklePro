@@ -1,6 +1,7 @@
 // Host page of the match draw (/admin; old /fixtures/admin works): load the final teams (PDF), set up the show,
 // draw the matches live, enter results, lock the knockout line-up. Same login as the auction.
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Login, Waking } from '../Admin.jsx';
 import { api } from '../api.js';
 import { FloatingReactions } from '../Audience.jsx';
@@ -66,6 +67,43 @@ function SeasonCheck({ state }) {
   );
 }
 
+// In-page confirmation dialog. Browser prompt()/confirm() boxes are blocked or unreliable in some
+// browsers (in-app browsers on phones), which made Restart silently do nothing. Optional `word`:
+// the host must type it (e.g. RESTART) before the button enables.
+function useConfirm() {
+  const [ask, setAsk] = useState(null);
+  const [typed, setTyped] = useState('');
+  const confirm = useCallback(opts => new Promise(resolve => {
+    setTyped('');
+    setAsk({ ...opts, resolve });
+  }), []);
+  const close = ok => {
+    ask?.resolve(ok);
+    setAsk(null);
+  };
+  const ready = !ask?.word || typed.trim().toUpperCase() === ask.word;
+  const dialog = ask && createPortal(
+    <div className="confirm-back" role="dialog" aria-modal="true" aria-label={ask.title} onClick={e => e.target === e.currentTarget && close(false)}>
+      <form className="confirm-card" onSubmit={e => { e.preventDefault(); if (ready) close(true); }}>
+        <h3>{ask.title}</h3>
+        {ask.body && <p>{ask.body}</p>}
+        {ask.word && (
+          <label className="confirm-word">
+            <span>Type <b>{ask.word}</b> to confirm</span>
+            <input value={typed} onChange={e => setTyped(e.target.value)} autoFocus autoCapitalize="characters" autoCorrect="off" autoComplete="off" spellCheck={false} aria-label={`Type ${ask.word}`} />
+          </label>
+        )}
+        <div className="row-actions confirm-actions">
+          <button type="button" className="btn" onClick={() => close(false)}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={!ready}>{ask.okLabel ?? 'OK'}</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  );
+  return [confirm, dialog];
+}
+
 function Dashboard({ onLogout }) {
   const live = useCup('host');
   const { state, connected, serverNow, onReaction, openedAt } = live;
@@ -88,7 +126,8 @@ function Dashboard({ onLogout }) {
     await api('/auth/logout', { method: 'POST' });
     onLogout();
   });
-  const ctx = { state, run, busy, serverNow, openedAt };
+  const [confirm, confirmDialog] = useConfirm();
+  const ctx = { state, run, busy, serverNow, openedAt, confirm };
   const p = state?.phase;
   return (
     <div className="cup-page cup-admin">
@@ -122,6 +161,7 @@ function Dashboard({ onLogout }) {
           <Tools {...ctx} />
         </main>
       )}
+      {confirmDialog}
       <FloatingReactions onReaction={onReaction} />
       <ResumeSoundPrompt />
       <Moments state={state} />
@@ -380,7 +420,7 @@ function SettingsDesk({ state, run, busy }) {
 
 // ---------- Draw ----------
 
-function DrawDesk({ state, run, busy, serverNow, openedAt }) {
+function DrawDesk({ state, run, busy, serverNow, openedAt, confirm }) {
   const [weapon, setWeapon] = useState('auto');
   const [show, setShow] = useState(null);
   const [left, setLeft] = useState(0);
@@ -434,7 +474,9 @@ function DrawDesk({ state, run, busy, serverNow, openedAt }) {
           <button
             className="btn"
             disabled={busy || running || !state.lastSeq}
-            onClick={() => window.confirm('Undo the latest match? Both teams go back into the arena.') && run(() => cupApi('/undo', { method: 'POST', body: { seq: state.lastSeq } }))}
+            onClick={async () => {
+              if (await confirm({ title: 'Undo the latest match?', body: 'Both teams go back into the arena.', okLabel: '↶ Undo' })) run(() => cupApi('/undo', { method: 'POST', body: { seq: state.lastSeq } }));
+            }}
           >↶ Undo last match</button>
           {!state.ties.length && !running && <button className="btn" disabled={busy} onClick={() => run(() => cupApi('/setup', { method: 'POST' }))}>Back to team setup</button>}
         </div>
@@ -507,7 +549,7 @@ function ResultsDesk({ state, run, busy }) {
   );
 }
 
-function SeedDesk({ state, run, busy }) {
+function SeedDesk({ state, run, busy, confirm }) {
   const n = state.knockout.seedCount;
   const fromTable = useCallback(() => state.standings.slice(0, n).map(r => r.key), [state.standings, n]);
   const [order, setOrder] = useState(fromTable);
@@ -547,8 +589,8 @@ function SeedDesk({ state, run, busy }) {
         <button
           className="btn btn-primary btn-big"
           disabled={busy || !ok}
-          onClick={() => {
-            if (undecided > 0 && !window.confirm(`${undecided} league ${undecided === 1 ? 'match is' : 'matches are'} not decided yet (a 3–3 needs points or a decider tap). Lock the knockout anyway?`)) return;
+          onClick={async () => {
+            if (undecided > 0 && !(await confirm({ title: 'Lock the knockout anyway?', body: `${undecided} league ${undecided === 1 ? 'match is' : 'matches are'} not decided yet (a 3–3 needs points or a decider tap).`, okLabel: '🔒 Lock' }))) return;
             run(() => cupApi('/seed', { method: 'POST', body: { seeds: order } }));
           }}
         >🔒 Lock &amp; reveal the knockout</button>
@@ -558,7 +600,7 @@ function SeedDesk({ state, run, busy }) {
   );
 }
 
-function KnockoutDesk({ state, run, busy }) {
+function KnockoutDesk({ state, run, busy, confirm }) {
   const any = state.knockout.ties.some(t => t.played || t.decider);
   return (
     <>
@@ -569,7 +611,7 @@ function KnockoutDesk({ state, run, busy }) {
           {state.knockout.ties.map(t => <TieEditor key={t.id} state={state} tie={t} run={run} busy={busy} />)}
         </div>
         {!any && (
-          <button className="btn" disabled={busy} onClick={() => window.confirm('Unlock the knockout line-up? You can then change it and lock it again.') && run(() => cupApi('/unseed', { method: 'POST' }))}>
+          <button className="btn" disabled={busy} onClick={async () => { if (await confirm({ title: 'Unlock the knockout line-up?', body: 'You can then change it and lock it again.', okLabel: '🔓 Unlock' })) run(() => cupApi('/unseed', { method: 'POST' })); }}>
             🔓 Unlock line-up
           </button>
         )}
@@ -606,19 +648,36 @@ function Fairness({ state }) {
   );
 }
 
-function Tools({ state, run, busy }) {
+function Tools({ state, run, busy, confirm }) {
   const [name, setName] = useState('');
+  const [msg, setMsg] = useState('');
   const running = Boolean(state.current);
   const fresh = state.phase === 'setup';
-  // Typed confirmation: a stray tap during the live event must never wipe the drawn matches.
-  const restart = () => {
-    const typed = window.prompt('Restart the match draw?\n\nEvery drawn match and result is cleared (teams, logos and settings stay) and everyone watching sees a fresh draw.\n\nType RESTART to confirm.');
-    if (typed === null) return;
-    if (typed.trim().toUpperCase() !== 'RESTART') {
-      window.alert('Not restarted — type RESTART to confirm.');
-      return;
-    }
-    run(() => cupApi('/new', { method: 'POST', body: { keepTeams: true } }));
+  // Typed confirmation (in-page): a stray tap during the live event must never wipe the drawn
+  // matches. The result shows right here, not only in the banner at the top of the page.
+  const restart = async () => {
+    setMsg('');
+    const ok = await confirm({
+      title: 'Restart the match draw?',
+      body: 'Every drawn match and result is cleared. Teams, logos and settings stay. Everyone watching sees a fresh draw.',
+      word: 'RESTART',
+      okLabel: '↺ Restart now',
+    });
+    if (!ok) return;
+    const r = await run(async () => {
+      try {
+        return await cupApi('/new', { method: 'POST', body: { keepTeams: true } });
+      } catch (err) {
+        setMsg(`❌ Not restarted: ${err.message}`);
+        throw err;
+      }
+    });
+    if (r) setMsg('✅ Restarted — same teams, nothing drawn. Load the final teams if the warning at the top says so, then open the arena when ready.');
+  };
+  const startNew = async () => {
+    setMsg('');
+    const ok = await confirm({ title: 'Start a new, EMPTY match draw?', body: 'No teams. Everyone will see the new one. The current draw stays in the database.', word: 'NEW', okLabel: 'Start new' });
+    if (ok && await run(() => cupApi('/new', { method: 'POST', body: { name: name || state.name } }))) setMsg('✅ New empty draw started.');
   };
   return (
     <section className="cup-card">
@@ -630,6 +689,7 @@ function Tools({ state, run, busy }) {
             : fresh ? 'Nothing drawn yet — this is a fresh start.'
               : 'Rehearse as often as you like. On the day, press Restart once: same teams and settings, nothing drawn, and the audience sees a clean start.'}
         </p>
+        {msg && <p className="restart-msg" role="status">{msg}</p>}
       </div>
       <div className="row-actions">
         <button
@@ -645,8 +705,7 @@ function Tools({ state, run, busy }) {
         <p className="hint">For a different event: no teams, starts at team setup. The current one is kept in the database.</p>
         <form className="row-actions" onSubmit={e => {
           e.preventDefault();
-          const typed = window.prompt('Start a new, EMPTY match draw (no teams)? Everyone will see the new one.\n\nType NEW to confirm.');
-          if (typed?.trim().toUpperCase() === 'NEW') run(() => cupApi('/new', { method: 'POST', body: { name: name || state.name } }));
+          startNew();
         }}>
           <input value={name} onChange={e => setName(e.target.value)} placeholder={state.name} maxLength={100} aria-label="Name of the new match draw" />
           <button className="btn" disabled={busy || running}>Start new</button>

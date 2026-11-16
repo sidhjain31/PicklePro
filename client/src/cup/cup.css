@@ -598,5 +598,16 @@
 .mm-games i { color: var(--muted); font-style: normal; margin: 0 3px; }
 .mm-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 
+.alert.season-check { display: block; white-space: normal; text-align: left; background: rgb(244 180 40 / 0.16); border: 2px solid #f4b428; color: #fff; }
 .season-check ul { margin: 4px 0 6px; padding-left: 18px; font-size: 0.9rem; }
 .season-check p { margin: 4px 0; }
+
+/* Host: in-page confirmation dialog (replaces browser prompt/confirm) */
+.confirm-back { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px; background: rgb(3 9 28 / 0.75); }
+.confirm-card { width: min(100%, 420px); display: grid; gap: 12px; padding: 20px 18px; border-radius: 16px; background: #0f2a6b; border: 2px solid var(--ball); box-shadow: 0 20px 60px rgb(0 0 0 / 0.55); color: #fff; }
+.confirm-card h3 { margin: 0; font-size: 1.25rem; }
+.confirm-card p { margin: 0; color: #dfe8ff; line-height: 1.4; }
+.confirm-word { display: grid; gap: 6px; font-weight: 700; }
+.confirm-word input { font-size: 1.2rem; padding: 10px 12px; border-radius: 10px; border: 2px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.08); color: #fff; letter-spacing: 0.08em; text-transform: uppercase; }
+.confirm-actions { justify-content: flex-end; }
+.restart-msg { margin: 0; flex-basis: 100%; font-weight: 700; }

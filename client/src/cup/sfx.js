@@ -12,10 +12,10 @@ import * as synth from '../sound.js';
 const FILES = ['crowd', 'open', 'title', 'drumroll', 'slowmo', 'fireball', 'thunder', 'laser', 'rocket', 'meteor', 'curve',
   'shatter', 'cheer', 'clash', 'whistle', 'fanfare', 'fireworks', 'pop', 'dhol-hit', 'music', 'dhols'];
 const buffers = new Map(); // name -> AudioBuffer | null (null = missing)
-// Optional loop windows [start, end] (seconds) for a file holding two copies of one period, so the
-// loop skips the MP3 padding at the file edges. None in use: music (the original track with only
-// the high vocal cut out, tools/audio/music_cut.py) loops the whole file.
-const LOOPS = {};
+// Loop windows [start, end] (seconds): the file holds one period plus the start of the next, so the
+// loop skips the MP3 padding at the file edges (gapless). music = the track with only the high vocal
+// cut out, ending on the bar line before the song's crash/fade (tools/audio/music_cut.py prints it).
+const LOOPS = { music: [0.06, 0.06 + 1737893 / 44100] };
 let loading = null;
 
 // Per-device on/off switches (default on).
