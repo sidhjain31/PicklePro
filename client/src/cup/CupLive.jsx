@@ -9,7 +9,8 @@ import { ResumeSoundPrompt } from '../Stage.jsx';
 import { useEvent } from '../event.js';
 import { SmashArena } from './SmashArena.jsx';
 import { Bracket, ChampionBanner, CupSteps, FindMatch, Standings, TeamsGrid, TieList } from './Boards.jsx';
-import { cupUrl, switchCup, useCup } from './live.js';
+import { cupUrl, switchCup, useCup, useFollow } from './live.js';
+import { MyMatchAlert, followedTeam } from './MyMatch.jsx';
 import { Moments } from './Moments.jsx';
 
 const SWITCH = [
@@ -80,6 +81,7 @@ export function ComingSoon({ unavailable, host = false }) {
 export function CupLive() {
   const { state, connected, viewers, serverNow, send, onReaction, openedAt, unavailable } = useCup('audience');
   const [show, setShow] = useState(null);
+  const [follow, setFollow] = useFollow();
   const hideSeq = show && show.phase !== 'done' ? show.seq : null;
   useWakeLock(Boolean(state && (state.phase === 'draw' || state.phase === 'knockout')));
   const visible = useMemo(() => (state && hideSeq ? { ...state, ties: state.ties.filter(t => t.seq !== hideSeq) } : state), [state, hideSeq]);
@@ -90,6 +92,8 @@ export function CupLive() {
     setTimeout(() => el?.classList.remove('flash'), 1600);
   };
   const p = state?.phase;
+  const mine = followedTeam(visible, follow)?.key ?? null;
+  const findMatch = state?.teams.length ? <FindMatch state={visible} onFound={jump} follow={follow} onFollow={setFollow} /> : null;
   return (
     <div className="audience cup-page">
       <Header state={state} connected={connected} viewers={viewers} kicker="Live match draw" />
@@ -108,20 +112,22 @@ export function CupLive() {
             </section>
           )}
           {p === 'draw' && <SmashArena state={state} serverNow={serverNow} onShow={setShow} openedAt={openedAt} />}
+          {(p === 'setup' || p === 'draw') && findMatch}
           {(p === 'knockout' || p === 'done') && <ChampionBanner state={state} />}
           {(p === 'knockout' || p === 'done') && <Bracket state={state} />}
-          {p !== 'setup' && <TieList state={visible} title={p === 'draw' ? 'Matches drawn' : 'Matches'} empty={p === 'draw' ? 'The first match is about to be drawn…' : null} />}
+          {p !== 'setup' && <TieList state={visible} mine={mine} title={p === 'draw' ? 'Matches drawn' : 'Matches'} empty={p === 'draw' ? 'The first match is about to be drawn…' : null} />}
           {p === 'league' && <Bracket state={state} />}
-          {p !== 'setup' && p !== 'draw' && <Standings state={state} />}
-          {p !== 'setup' && visible.ties.length > 0 && <FindMatch state={visible} onFound={jump} />}
+          {p !== 'setup' && p !== 'draw' && <Standings state={state} mine={mine} />}
+          {p !== 'setup' && p !== 'draw' && findMatch}
           {p !== 'draw' && <TeamsGrid state={state} />}
         </main>
       )}
       <BrandFooter />
       <FloatingReactions onReaction={onReaction} />
       <ResumeSoundPrompt />
-      {state && p !== 'setup' && <ReactionBar send={send} />}
+      {state && state.teams.length > 0 && <ReactionBar send={send} />}
       <Moments state={state} />
+      {state && <MyMatchAlert state={visible} follow={follow} onShow={jump} />}
     </div>
   );
 }

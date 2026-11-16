@@ -107,6 +107,26 @@ export function useCup(role = 'audience') {
 }
 
 export const teamOf = (state, key) => state?.teams.find(t => t.key === key) ?? null;
+
+// Find my match -> "Alert me": the team (and player) this viewer follows, per draw, on this device.
+export function useFollow() {
+  const key = storeKey('cup-follow');
+  const [follow, setFollowState] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) ?? null;
+    } catch {
+      return null;
+    }
+  });
+  const setFollow = useCallback(v => {
+    setFollowState(v);
+    try {
+      if (v) localStorage.setItem(key, JSON.stringify(v));
+      else localStorage.removeItem(key);
+    } catch { /* storage unavailable: works for this visit */ }
+  }, [key]);
+  return [follow, setFollow];
+}
 // "Team 7" -> { kicker: 'TEAM', big: '7' } so tiles can show the number large.
 export function splitName(name = '') {
   const m = /^team\s*#?\s*(\d+)$/i.exec(name.trim());

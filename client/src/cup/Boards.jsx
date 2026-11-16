@@ -40,8 +40,8 @@ export const TieCard = memo(function TieCard({ state, tie, mine = null, open = f
   return (
     <article className={`tie${tie.winner ? ' decided' : ''}${mine && (tie.a === mine || tie.b === mine) ? ' mine' : ''}`} id={`tie-${tie.id}`}>
       <header className="tie-head">
-        <span className="tie-label">{tie.label}</span>
-        {tie.court && <span className="tie-court">Court {tie.court}</span>}
+        {/* Knockout ties keep their name (QF1, Final…); league matches have no number or court. */}
+        {tie.stage !== 'L' && <span className="tie-label">{tie.label}</span>}
         {tie.weapon && WEAPON_INFO[tie.weapon] && <span className="tie-weapon" title={WEAPON_INFO[tie.weapon].name}>{WEAPON_INFO[tie.weapon].emoji}</span>}
         {tie.note && <span className="tie-note">{tie.note}</span>}
       </header>
@@ -81,26 +81,16 @@ export const TieCard = memo(function TieCard({ state, tie, mine = null, open = f
   );
 });
 
-// League fixtures in draw order, grouped into rounds of `courts` matches played side by side.
+// League matches in draw order (no match numbers, courts or rounds — the organisers schedule them).
 export function TieList({ state, hideSeq = null, mine = null, title = 'Matches', empty, render }) {
   const ties = state.ties.filter(t => t.seq !== hideSeq);
   if (!ties.length) return empty ? <p className="cup-empty">{empty}</p> : null;
-  const rounds = [];
-  for (const t of ties) {
-    const r = rounds[t.round - 1] ?? (rounds[t.round - 1] = []);
-    r.push(t);
-  }
   return (
     <section className="cup-section" aria-label={title}>
       <h2 className="section-title">{title} <span className="section-count">{ties.length}/{state.totalTies}</span></h2>
-      {rounds.filter(Boolean).map((r, i) => (
-        <div className="tie-round" key={i}>
-          {state.courts > 1 && <p className="tie-round-label">Round {r[0].round}</p>}
-          <div className="tie-grid">
-            {r.map(t => (render ? render(t) : <TieCard key={t.id} state={state} tie={t} mine={mine} />))}
-          </div>
-        </div>
-      ))}
+      <div className="tie-grid">
+        {ties.map(t => (render ? render(t) : <TieCard key={t.id} state={state} tie={t} mine={mine} />))}
+      </div>
     </section>
   );
 }
@@ -200,8 +190,9 @@ export function ChampionBanner({ state }) {
   );
 }
 
-// "Where do I play?" — type your name (or a team) and see your match and partners.
-export function FindMatch({ state, onFound }) {
+// "Where do I play?" — type your name (or a team) and see your match and partners. Works before
+// and during the draw: "Alert me" pops up the match the moment it's drawn (MyMatch.jsx).
+export function FindMatch({ state, onFound, follow = null, onFollow = null }) {
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
   const found = useMemo(() => {
@@ -211,19 +202,34 @@ export function FindMatch({ state, onFound }) {
   return (
     <section className="cup-card find" aria-label="Find my match">
       <h2 className="card-title">⭐ Find my match</h2>
+      {follow && (
+        <p className="follow-note">
+          🔔 Alerts on for <b>{follow.team}</b>{follow.playerName ? ` (${follow.playerName})` : ''} — keep this page open.
+          {' '}<button type="button" className="link" onClick={() => onFollow?.(null)}>Turn off</button>
+        </p>
+      )}
       <input value={q} onChange={e => setQ(e.target.value)} placeholder="Type your name or team" aria-label="Your name or team" autoComplete="off" />
       {found.map(t => {
         const tie = state.ties.find(x => x.a === t.key || x.b === t.key);
         const me = Object.entries(t.players).find(([, p]) => p.toLowerCase().includes(query))?.[0] ?? null;
         const ko = state.knockout.ties.filter(x => x.a === t.key || x.b === t.key);
         const other = tie && teamOf(state, tie.a === t.key ? tie.b : tie.a);
+        const on = follow?.team === t.name;
         return (
-          <div className="find-hit" key={t.key}>
+          <div className={`find-hit${on ? ' following' : ''}`} key={t.key}>
             <p className="find-team"><b>{t.name}</b> · {Object.values(t.players).filter(Boolean).join(', ')}</p>
+            {onFollow && (
+              <button
+                type="button"
+                className={`btn btn-small follow-btn${on ? ' on' : ''}`}
+                aria-pressed={on}
+                onClick={() => onFollow(on ? null : { key: t.key, team: t.name, player: me, playerName: me ? t.players[me] : null })}
+              >{on ? '🔔 Alerts on' : '🔔 Alert me'}</button>
+            )}
             {tie ? (
               <>
                 <p className="find-match">
-                  {tie.label} · Court {tie.court} vs <b>{other?.name}</b>
+                  Plays <b>{other?.name}</b>
                   <button type="button" className="link" onClick={() => onFound?.(tie.id)}>Show</button>
                 </p>
                 {me && (
@@ -235,7 +241,7 @@ export function FindMatch({ state, onFound }) {
                   </ul>
                 )}
               </>
-            ) : <p className="find-match muted">Not drawn yet — stay tuned!</p>}
+            ) : <p className="find-match muted">Not drawn yet — {on ? 'you will get a pop-up the moment it is drawn.' : 'tap 🔔 Alert me and this page tells you the moment it is drawn.'}</p>}
             {ko.map(x => <p className="find-match" key={x.id}>🏆 {x.label} vs <b>{sideName(state, x.a === t.key ? x.b : x.a, 'TBD')}</b></p>)}
           </div>
         );

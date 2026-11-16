@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- WhatsApp teaser for the ICC Season 2 live match draw (18 Nov 2026, 6:30 PM).
+     Render: chrome --headless=new --hide-scrollbars --window-size=1080,1350 --screenshot=match-draw-poster.png file:///…/match-draw-poster.html -->
+<html><head><meta charset="utf-8"><title>Match Draw Teaser</title>
+<style>
+  @font-face { font-family: 'Big Shoulders'; src: url('fonts/big-shoulders-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Archivo'; src: url('fonts/archivo-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1080px; height: 1350px; overflow: hidden; font-family: Archivo, sans-serif; color: #fff;
+    background: radial-gradient(ellipse 70% 40% at 50% 47%, rgb(244 224 77 / .22), transparent 70%),
+      radial-gradient(circle at 12% 8%, #2a6fe0 0, transparent 42%), radial-gradient(circle at 92% 92%, #3f9b3a 0, transparent 38%),
+      linear-gradient(165deg, #071338, #0f2d78 55%, #071338); }
+  .wrap { position: relative; height: 100%; padding: 30px 60px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .wrap > * { flex-shrink: 0; }
+  .logo { width: 116px; filter: drop-shadow(0 10px 24px rgb(0 0 0 / .5)); }
+  .kicker { margin-top: 10px; letter-spacing: .32em; font-weight: 800; color: #f4e04d; font-size: 24px; }
+  h1 { font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-size: 128px; line-height: .86; margin-top: 8px; text-transform: uppercase; letter-spacing: .01em; text-shadow: 0 8px 0 #050d26, 0 0 40px rgb(42 111 224 / .8); }
+  h1 em { font-style: normal; color: #f4e04d; text-shadow: 0 8px 0 #050d26, 0 0 50px rgb(244 224 77 / .7); }
+  .tag { font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 800; font-size: 34px; margin-top: 12px; color: #cfe0ff; letter-spacing: .05em; text-transform: uppercase; }
+
+  /* The hint: two mystery crests about to collide, a smashed ball streaking in. */
+  .arena { position: relative; width: 960px; height: 290px; margin-top: 10px; }
+  .court { position: absolute; left: 50%; bottom: 6px; width: 880px; height: 130px; transform: translateX(-50%) perspective(600px) rotateX(58deg); border: 5px solid rgb(255 255 255 / .75); background: linear-gradient(#1f6fd6, #1452b0); border-radius: 6px; box-shadow: 0 0 60px rgb(31 111 214 / .6); }
+  .court::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; border-left: 4px solid rgb(255 255 255 / .7); }
+  .crest { position: absolute; top: 18px; width: 172px; height: 206px; display: grid; place-items: center; clip-path: polygon(50% 100%, 100% 72%, 100% 8%, 92% 0, 8% 0, 0 8%, 0 72%); }
+  .crest i { position: absolute; inset: 14px 14px 30px; border-radius: 20px; background: #0a1533; display: grid; place-items: center; font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-style: normal; font-size: 116px; color: #f4e04d; text-shadow: 0 0 30px rgb(244 224 77 / .8); }
+  .crest.a { left: 190px; background: linear-gradient(160deg, #ff7a2f, #c2300d); transform: rotate(-8deg); box-shadow: 0 0 60px #ff7a2f; filter: drop-shadow(0 0 30px rgb(255 122 47 / .9)); }
+  .crest.b { right: 190px; background: linear-gradient(200deg, #3fd0ff, #1263d6); transform: rotate(8deg); filter: drop-shadow(0 0 30px rgb(63 208 255 / .9)); }
+  .vs { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-size: 112px; line-height: 1; color: #f4e04d; text-shadow: 0 6px 0 #050d26, 0 0 40px #f4e04d; }
+  .spark { position: absolute; left: 50%; top: 122px; width: 260px; height: 260px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgb(255 255 255 / .9), rgb(244 224 77 / .4) 25%, transparent 60%); filter: blur(2px); }
+  .ball { position: absolute; left: 70px; top: 26px; width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff59a, #f4e04d 45%, #c9b31c); box-shadow: 0 0 26px #f4e04d; }
+  .trail { position: absolute; left: -40px; top: 40px; width: 140px; height: 18px; border-radius: 9px; background: linear-gradient(90deg, transparent, rgb(255 140 40 / .9)); transform: rotate(14deg); filter: blur(3px); }
+
+  .tease { margin-top: 12px; font-size: 26px; line-height: 1.35; color: #e4ecff; font-weight: 600; max-width: 900px; }
+  .tease b { color: #f4e04d; font-weight: 800; }
+  .tease2 { margin-top: 8px; font-size: 26px; font-weight: 800; color: #8fd96b; letter-spacing: .02em; }
+  .find { margin-top: 18px; width: 100%; display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; text-align: left; background: rgb(8 24 70 / .9); border: 3px solid #f4e04d; border-radius: 26px; padding: 18px 26px; box-shadow: 0 0 40px rgb(244 224 77 / .25); }
+  .find .star { font-size: 64px; line-height: 1; }
+  .find h2 { font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-size: 44px; line-height: 1; text-transform: uppercase; color: #f4e04d; }
+  .find p { margin-top: 8px; font-size: 23px; line-height: 1.35; color: #e8efff; }
+  .find p b { color: #fff; }
+
+  .bottom { margin-top: 20px; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 26px; }
+  .when { display: grid; gap: 12px; justify-items: start; text-align: left; }
+  .date { font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-size: 58px; line-height: .95; text-transform: uppercase; }
+  .date span { color: #f4e04d; }
+  .pill { background: #f4e04d; color: #0b1f52; font-weight: 900; font-size: 27px; padding: 12px 24px; border-radius: 999px; }
+  .live { font-size: 24px; font-weight: 800; color: #8fd96b; }
+  .qrbox { display: grid; justify-items: center; gap: 8px; }
+  .qr { width: 176px; height: 176px; border-radius: 18px; background: #fff; padding: 10px; box-shadow: 0 12px 30px rgb(0 0 0 / .45); }
+  .qr img { width: 100%; height: 100%; display: block; }
+  .qrbox small { font-size: 19px; font-weight: 700; color: #cfe0ff; }
+  .foot { position: absolute; bottom: 16px; left: 0; right: 0; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; color: rgb(255 255 255 / .55); }
+</style></head>
+<body><div class="wrap">
+  <img class="logo" src="../client/public/logo.png" alt="ICC Pickleball">
+  <p class="kicker">ICC PICKLEBALL · SEASON 2</p>
+  <h1>Who will<br>you <em>face?</em></h1>
+  <p class="tag">28 teams · 1 live draw · a show you've never seen</p>
+
+  <div class="arena" aria-hidden="true">
+    <div class="court"></div>
+    <div class="spark"></div>
+    <div class="crest a"><i>?</i></div>
+    <div class="crest b"><i>?</i></div>
+    <div class="vs">VS</div>
+    <div class="trail"></div><div class="ball"></div>
+  </div>
+
+  <p class="tease">A spotlight hunts. A smash. Something <b>shatters</b>… and your rival is revealed — live, on <b>everyone's phone at the same second</b>.</p>
+  <p class="tease2">Main + Kids draws &nbsp;·&nbsp; 🔊 Turn your sound ON</p>
+
+  <div class="find">
+    <div class="star">⭐</div>
+    <div>
+      <h2>Find my match + 🔔 Alert me</h2>
+      <p>Open the link, type <b>your name</b> and tap <b>🔔 Alert me</b>. The moment your team is drawn, your phone pops up with <b>your opponent and your games</b>.</p>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="when">
+      <p class="date">Wednesday<br><span>18 Nov · 6:30 PM</span></p>
+      <p class="pill">Be there. Don't blink.</p>
+      <p class="live">● LIVE on your phone — scan →</p>
+    </div>
+    <div class="qrbox">
+      <div class="qr"><img src="match-draw-qr.svg" alt=""></div>
+      <small>pickle-pro-peach.vercel.app</small>
+    </div>
+  </div>
+</div></body></html>

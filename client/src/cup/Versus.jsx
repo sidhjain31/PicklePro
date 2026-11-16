@@ -27,7 +27,7 @@ function Side({ team, side }) {
   );
 }
 
-export function Versus({ a, b, title, note, court, ms = 7000, games = true, onClose }) {
+export function Versus({ a, b, title, note, ms = 7000, games = true, onClose }) {
   const ref = useRef(null);
   const markRef = useRef(null);
   useEffect(() => {
@@ -45,17 +45,19 @@ export function Versus({ a, b, title, note, court, ms = 7000, games = true, onCl
     };
   }, [ms]);
   return createPortal(
-    <div ref={ref} className="vs" style={{ '--ca': colorOf(a), '--cb': colorOf(b) }} role="dialog" aria-label={`${title}: ${a.name} versus ${b.name}`} onClick={onClose}>
+    <div ref={ref} className="vs" style={{ '--ca': colorOf(a), '--cb': colorOf(b) }} role="dialog" aria-label={`${title ? `${title}: ` : ''}${a.name} versus ${b.name}`} onClick={onClose}>
       <div className="vs-bg" aria-hidden="true">
         <i className="vs-half vs-half-a" />
         <i className="vs-half vs-half-b" />
         <i className="vs-lines" />
       </div>
-      <p className="vs-title">
-        {title}
-        {court ? <span> · Court {court}</span> : null}
-        {note ? <span> · {note}</span> : null}
-      </p>
+      {/* League matches have no title (no match numbers / courts); knockout ties show QF1, Final… */}
+      {title && (
+        <p className="vs-title">
+          {title}
+          {note ? <span> · {note}</span> : null}
+        </p>
+      )}
       <Side team={a} side="a" />
       <div ref={markRef} className="vs-mark" aria-hidden="true"><span>V</span><span>S</span></div>
       <Side team={b} side="b" />

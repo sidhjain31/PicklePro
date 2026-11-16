@@ -57,7 +57,7 @@ export function Moments({ state }) {
         const w = teamOf(state, t[t.winner]);
         const l = teamOf(state, t[t.winner === 'a' ? 'b' : 'a']);
         const score = t.winner === 'a' ? `${t.ga}–${t.gb}` : `${t.gb}–${t.ga}`;
-        setToast({ key: `${t.id}-${Date.now()}`, text: `${w?.name} beat ${l?.name} ${score}`, label: t.label });
+        setToast({ key: `${t.id}-${Date.now()}`, text: `${w?.name} beat ${l?.name} ${score}`, label: t.stage === 'L' ? 'Result' : t.label });
         sfx.result();
       }
     }
@@ -124,7 +124,6 @@ export function Moments({ state }) {
           b={teamOf(state, cur.b)}
           title={cur.label}
           note={cur.note}
-          court={cur.court}
           ms={STEP}
           games={false}
           onClose={() => setReveal(null)}

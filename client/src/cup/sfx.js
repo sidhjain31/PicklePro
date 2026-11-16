@@ -12,10 +12,10 @@ import * as synth from '../sound.js';
 const FILES = ['crowd', 'open', 'title', 'drumroll', 'slowmo', 'fireball', 'thunder', 'laser', 'rocket', 'meteor', 'curve',
   'shatter', 'cheer', 'clash', 'whistle', 'fanfare', 'fireworks', 'pop', 'dhol-hit', 'music', 'dhols'];
 const buffers = new Map(); // name -> AudioBuffer | null (null = missing)
-// Loop windows [start, end] in seconds for files that hold two copies of one period: looping a
-// window inside real audio avoids the MP3 padding gap at the file edges. music = the vocal-free
-// 16-beat dhol groove (96 BPM) from tools/audio/devocal_music.py.
-const LOOPS = { music: [0.08, 0.08 + 441024 / 44100] }; // 441024 samples = one 16-beat period
+// Optional loop windows [start, end] (seconds) for a file holding two copies of one period, so the
+// loop skips the MP3 padding at the file edges. None in use: music (the original track with only
+// the high vocal cut out, tools/audio/music_cut.py) loops the whole file.
+const LOOPS = {};
 let loading = null;
 
 // Per-device on/off switches (default on).

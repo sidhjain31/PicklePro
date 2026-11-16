@@ -307,10 +307,10 @@ export function Arena({ state, serverNow, mode = 'audience', onShow, openedAt })
   const total = state.totalTies;
   const drawn = state.ties.filter(t => !(ui && ACTIVE.has(phase) && t.seq === ui.seq)).length;
   const message = {
-    // (The instant a draw arrives, nextTie already counts it: name the running match instead.)
-    idle: state.current ? `Match ${state.current.tie} of ${total}…`
+    // No match numbers anywhere (owner): matches are scheduled by the organisers, not by draw order.
+    idle: state.current ? 'Here we go…'
       : state.phase === 'draw'
-        ? (mode === 'host' ? `Ready for match ${state.nextTie} of ${total}` : `Waiting for match ${state.nextTie} of ${total}…`)
+        ? (mode === 'host' ? 'Ready for the next draw' : 'Waiting for the next draw…')
         : 'Every team has a match!',
     intro: `${info?.emoji ?? ''} ${info?.name ?? ''}`,
     aimA: `${info?.emoji ?? ''} Hunting the first team…`,
@@ -332,8 +332,8 @@ export function Arena({ state, serverNow, mode = 'audience', onShow, openedAt })
       <div className="arena-bg" aria-hidden="true"><i className="beam beam-1" /><i className="beam beam-2" /><i className="floor" /></div>
       <header className="arena-hud">
         <div className="hud-count">
-          <span>Match</span>
-          <b>{ui ? ui.tie : Math.min(state.nextTie, total)}</b>
+          <span>Drawn</span>
+          <b>{drawn}</b>
           <span>of {total}</span>
         </div>
         <p className="hud-msg" aria-live="polite">{opening ? 'Let the draw begin!' : message}</p>
@@ -373,7 +373,7 @@ export function Arena({ state, serverNow, mode = 'audience', onShow, openedAt })
 
       {phase === 'intro' && info && (
         <div className="arena-intro" role="status">
-          <p className="ai-match">Match {ui.tie} <span>of {ui.total}</span></p>
+          <p className="ai-match">Next draw</p>
           <div className="ai-emoji" aria-hidden="true">{info.emoji}</div>
           <h3 className="ai-name">{info.name}</h3>
           <p className="ai-line">{info.line}</p>
@@ -394,8 +394,6 @@ export function Arena({ state, serverNow, mode = 'audience', onShow, openedAt })
           state={state}
           a={A}
           b={B}
-          title={`Match ${ui.tie}`}
-          court={((ui.tie - 1) % (state.courts || 2)) + 1}
           ms={ui.vsMs}
           onClose={() => setVsClosed(true)}
         />

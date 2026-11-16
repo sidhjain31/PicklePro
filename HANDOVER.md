@@ -181,7 +181,7 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 
 ### 5.1 Format (from the organisers' sheet; their timings are ignored)
 - Every team plays **one match (tie)** against a **drawn** opponent. A tie = **six doubles games**, same categories facing each other: **A/B, C/D, A/C, B/D, A/D, B/C** (`GAMES` in `core.js`; A–D = the team's four players; D is the woman in the main draw).
-- Ties are spread over courts in draw order: tie N → court `((N−1) % courts) + 1`, round `ceil(N / courts)` (default 2 courts).
+- **No match numbers, courts or rounds are shown anywhere** (owner, 2026-11-17: the organisers schedule the matches themselves). Internally ties still have an order (`L1…`, `no`, and `court`/`round` fields in `core.js`), but no screen or PDF shows them. Knockout ties keep their names (QF1–QF4, Semi-final 1/2, Final, 3rd / 4th place).
 - A tie is won with **4+ games**; at **3–3** the total points decide (if entered), else the host taps a **decider**.
 - Standings: ties won → games won → points difference → points for. The host can reorder before locking (own tie-break rules).
 - **Knockout:** 8+ teams (main, 28 → 14 ties) → seeds 1–8 → **QF1 1v8, QF2 2v7, QF3 3v6, QF4 4v5** → **SF1 = W(QF1) v W(QF2), SF2 = W(QF3) v W(QF4)** → **Final**. 4–7 teams (kids, 4 → 2 ties) → **Final 1v2** + **3rd place 3v4**.
@@ -189,14 +189,15 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 
 ### 5.2 Host flow (`/admin`, then the Main/Kids switch)
 1. **Teams** — ⭐ **Load ICC Season 2 teams** (one tap, from `season2.json`, logos included) **or** upload a file (PDF, .xlsx, .docx, CSV) **or** paste text → editable table (logo, colour, name, players A–D) → **Save**. Needs an even number ≥ 4.
-2. **The show** — name, suspense (`aimMs`, server accepts 1.5–9 s, default 3.5 s), shot (🎲 Surprise = changes every match, never the same within 3; or one fixed), courts.
+2. **The show** — name, suspense (`aimMs`, server accepts 1.5–9 s, default 3.5 s), shot (🎲 Surprise = changes every match, never the same within 3; or one fixed). (The courts setting was removed from the page; the server still accepts it.)
 3. **🎨 Logos & colours** — change any time (even mid-event); names/players lock when the arena opens.
-4. **Open the arena** → audiences see the crests rise. **Draw match N of 14** per tap (optionally pick that match's shot). The button is locked while a show runs (counts down) and right after a tap until the show is confirmed. **↶ Undo last match** (only the latest, not during its show, not once it has results). **Back to team setup** while nothing is drawn.
+4. **Open the arena** → audiences see the crests rise. **🎯 Draw the next match (N/14 drawn)** per tap (optionally pick that match's shot). The button is locked while a show runs (counts down) and right after a tap until the show is confirmed. **↶ Undo last match** (only the latest, not during its show, not once it has results). **Back to team setup** while nothing is drawn.
 5. **Results** — per game tap the winning pair or type points; 3–3 → points or decider tap. Toasts on every phone.
 6. **🔒 Knockout line-up** — from the standings, reorderable → **Lock & reveal** (asks first if any league tie is undecided). Back-to-back VS cards on every screen. **Unlock** while no knockout result exists.
 7. **Knockout results** → **Champions** overlay everywhere.
-8. **Tools** — **↺ Restart draw** (same teams, logos, settings; nothing drawn; type `RESTART`; refused while a show runs) · 📄 Fixtures PDF · 📺 TV view · *Start a new match draw (empty, new name)* (type `NEW`). Restart/new keep the old draw in the database; to undo one, delete the newest `cups` document of that event in Atlas — the previous one becomes active again.
+8. **Tools** — **↺ Restart draw** (same teams, logos, settings; nothing drawn; type `RESTART`; refused while a show runs) · **📄 Matches PDF** (enabled once every team is drawn: one VS card per league match — logos, names, players A–D, VS, the six games; two per A4 page; no knockout, no match numbers/courts, no fairness hashes) · 📺 TV view · *Start a new match draw (empty, new name)* (type `NEW`). Restart/new keep the old draw in the database; to undo one, delete the newest `cups` document of that event in Atlas — the previous one becomes active again.
 9. **Fairness** card — re-checks every finished match's seal (✅ N/N).
+10. **Final-list check** (top of the host page): if the saved teams differ from the organisers' final list bundled in `season2.json` (same team names, different players), a warning lists every difference and says what to tap (setup: ⭐ Load ICC Season 2 teams → Save; arena open: ↺ Restart → Load → Save → open again).
 
 ### 5.3 The show — Smash Arena 3D
 **Timeline per match** (server times; `TIMING = { introMs: 1800, strikeMs: 3800, vsMs: 7800, fateMs: 2600 }`, `timeline()` in `core.js`):
@@ -233,10 +234,15 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 
 ### 5.6 Sound (`client/src/cup/sfx.js`)
 - 21 recorded files in `client/public/sounds/` (2.2 MB), fetched **only on devices with sound on**, never precached; played through `sound.js`'s master gain (the 🔊 button mutes everything instantly). Any missing/undecodable file falls back to the old synthesized sound.
-- **Layers:** music bed (0.4, ducks under big moments) = a **vocal-free 16-beat dhol/electronic groove** (96 BPM, exactly 441024 samples = 10.0005 s) cut from the drop of "Dhol And Neon"; the file holds two copies and `sfx.js` loops the window `LOOPS.music` inside real audio, so there is no MP3-padding gap (checked: wrap step 0.002, repeats sample-identical). The track's female vocal (and the stinger's) was removed at the owner's request; **crowd murmur only while the spotlight hunts** (0.1, fades out 1.6 s after); one-shots per moment: arena open, title, drum roll (hunt), slow-mo toss, paddle pop (skips 35 ms encoder padding), flight sound per shot, shatter + short cheer + 2.5 s dhol burst per reveal (`dhol-hit` = one bar of the same vocal-free groove, 2.8 s), metal clash (collide; VS adds nothing), whistle + fanfare (all set), fanfare + fireworks + dhols (champions), short cheer per result. Cheers are short faded bursts (0.3–0.55 gain, 1.2–3.5 s).
+- **Layers:** music bed (0.4, ducks under big moments) = **"Dhol And Neon" with only the high female vocal cut out** (owner, 2026-11-17: "cut 0:11–0:24 only, rest keep"): app time 0–9.406 s (intro, up to the last beat before the voice enters at ~9.5 s) + 25.032 s → end (the dhol section, landing on a downbeat), 0.1 s equal-power crossfade; 43.8 s, loops the whole file. (On 2026-11-16 the whole music had been replaced by a 10 s beat loop — the owner wanted the rest of the track back.) **crowd murmur only while the spotlight hunts** (0.1, fades out 1.6 s after); one-shots per moment: arena open, title, drum roll (hunt), slow-mo toss, paddle pop (skips 35 ms encoder padding), flight sound per shot, shatter + short cheer + 2.5 s dhol burst per reveal (`dhol-hit` = the original 15-s stinger's opening, restored 2026-11-17), metal clash (collide; VS adds nothing), whistle + fanfare (all set), fanfare + fireworks + dhols (champions), short cheer per result. Cheers are short faded bursts (0.3–0.55 gain, 1.2–3.5 s).
 - **Per device switches:** 🎵 Music and 👥 Crowd (localStorage `team-draw:music`, `team-draw:crowd`), icon-only under 560 px.
 - **Sources/licences** (checked 2026-11-14): Mixkit (Sound Effects Free License, commercial use inside a product OK): crowd 2097, open 2900, title 2918, drumroll 577, slowmo 1486, fireball 1347, thunder 1300, laser 1287, rocket 1714, meteor 3024, curve 1493, shatter 1693, cheer 462, clash 1687, whistle 614, fanfare 2293, fireworks 524. Pixabay (Pixabay Content License, free commercial use, no credit required): `pop` = "PickleBall" (freesound_community 24267), `dhol-hit` = "Dhol And Neon (15 sec stinger)" (kaazoom 564695), `music` = "Dhol And Neon (1 min edit)" (kaazoom 564697), `dhols` = "Indian Wedding Dhols" (freesound_community 52474).
-- **Processing:** `tools/audio/process.mjs` (trim, mono 96 kbps / music stereo 112 kbps, loudness levelling, fades, seamless crowd loop). Music + reveal hit since 2026-11-16: `towav.mjs` (MP3 → WAV) → `devocal_music.py` (finds the vocal-free section, exact 16-beat loop, crossfaded seam, one-bar hit, matches the old loudness, prints the loop length for `LOOPS.music`) → `encode.mjs` (WAV → MP3: music 112 kbps stereo, hit 96 kbps mono). The vocal was located with spectrograms: wavy pitched lines with vibrato (~350 Hz, ~950–1100 Hz) in 0–44 s; 45–57 s is pure beat.
+- **Processing:** `tools/audio/process.mjs` (trim, mono 96 kbps / music stereo 112 kbps, loudness levelling, fades, seamless crowd loop). Music since 2026-11-17: `towav.mjs` (MP3 → WAV) → `music_cut.py` (cut constants inside: LEAVE 9.406 s, LAND 25.032 s, 0.1 s crossfade, old loudness) → `encode.mjs music.wav music.mp3 112 stereo`. The voice was located with spectrograms: wavy pitched lines with vibrato; the high part (~950–1100 Hz) starts at app 9.5 s (850–2600 Hz band +7 dB) and the dhol section starts on the downbeat at 25.032 s (beat 0.6255 s, grid anchored on the drop at 45.033 s). `sfx.js` still supports loop windows (`LOOPS`), currently unused.
+
+### 5.6b Find my match + 🔔 Alert me, reactions
+- **Find my match** shows as soon as teams exist (setup and during the draw, near the top; after the draw below the standings). Type a name or team → the team, players, its match (opponent only — no match number/court), the searched player's three games.
+- **🔔 Alert me** per team (stored per draw on the device: `team-draw[:kids]:cup-follow` = `{key, team, player, playerName}`; matched by team name first). When that team's match becomes visible (= right after its show ends, never a spoiler) or its knockout tie is set, `MyMatch.jsx` pops up "⭐ Your match is drawn!" with both logos, the opponent and the player's games, buzz + fanfare, auto-close 15 s; the match card is highlighted (`mine`). Works only while the page is open (no push notifications).
+- **Live reactions:** relayed per draw room (verified: 6/6 reach other phones and the sender, invalid emoji dropped, other draw gets none). Floating emojis and the reaction bar sit at z-index 90, above the VS screen (80), moments (82) and champions (84), on phones and the TV — they used to be hidden behind the VS screen and the TV arena.
 
 ### 5.7 Live-ness and robustness details
 - First paint: last state from localStorage **only if < 10 minutes old** (`cup-state-v2`), never a running show; then HTTP `/state`, then the socket.
@@ -247,7 +253,7 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 - The server returns 404 for `/api/fixtures/state` if it's an old build → pages show **Coming soon** (host: "push to main → Render").
 
 ### 5.8 What the audience page shows (top to bottom)
-Header (ICC logo, draw name, LIVE, 👀 watching) → SP Tech credit strip → Main/Kids switch → steps (Teams · Draw · Matches · Knockout · Champion) → by phase: *Coming up* hero / the arena / champion banner + bracket → matches drawn (with court/round, find my match) → standings → teams → footer. Reactions bar (own room) once the arena is open.
+Header (ICC logo, draw name, LIVE, 👀 watching) → SP Tech credit strip → Main/Kids switch → steps (Teams · Draw · Matches · Knockout · Champion) → by phase: *Coming up* hero / the arena / champion banner + bracket → ⭐ Find my match (setup/draw) → matches drawn (no numbers/courts) → standings → find my match (after the draw) → teams → footer. Reactions bar (own room) once the arena is open. HUD counter = "Drawn N of 14"; jumbotron "LIVE DRAW · <shot>"; title card "Next draw"; league VS cards have no title.
 
 ---
 
@@ -307,8 +313,13 @@ Main/Kids switch; Setup (name, spin length, categories/order, lists by paste or 
 | 21 | **Square logo plates** (not circles), lean-back crests, logos below the bloom threshold, cleaned checkerboards | Owner: "ensure in 3D the logos are seen clearly" — circles cut off team names; bloom blurred white logos. |
 | 22 | Draw-day hardening (tweens end by the clock, overlay timers, 10-min cache, waking note, Draw-button lock, knockout-lock confirm) | Found by the real-speed rehearsal; owner: "make it so robust that I don't have any issues on draw day". |
 | 23 | Production deploys and pushes only when asked | Owner's standing rule. |
-| 24 | **No female vocal anywhere**: music = the track's vocal-free drop as a seamless 10 s loop; reveal hit = one bar of it | Owner: "the girl sound in music I don't want… crop that"; the same voice also opened the reveal stinger. |
+| 24 | Music: cut **only** the high female vocal (app 9.4–25.0 s) out of "Dhol And Neon", keep the rest; original reveal stinger | Owner first said "the girl sound… crop that" (we replaced the music with a 10 s beat loop), then clarified "cut 0:11–0:24 only, rest keep". |
 | 25 | Native resolution on every screen, 640 px logos | Owner: blur on the iPhone, then "resolution at 2040P on every screen". |
+| 26 | **No match numbers or courts** anywhere (league); knockout names kept | Owner: "remove match no and court definition" — the organisers schedule. |
+| 27 | **Matches PDF = VS card per match**, league only, no hashes, after all teams are drawn | Owner's screenshot of the VS card: "PDF should showcase in this way… before QF… don't add any hash". |
+| 28 | **Find my match before the draw + 🔔 Alert me pop-up** | Owner: "notification of find my match don't work". It had no alert and only appeared after the first match. |
+| 29 | Host **final-list check** against `season2.json` | 3 players were replaced after the owner's rehearsal; the live draw still had the old names. |
+| 30 | WhatsApp **teaser poster** (curiosity + hint, date, Find my match, QR) | Owner: "surprising… curious… exciting for participants, tell about find my match". |
 
 ### Team Auction (session 1)
 | Decision | Why |
@@ -372,7 +383,13 @@ Main/Kids switch; Setup (name, spin length, categories/order, lists by paste or 
 | Reading the admin session token from a file was blocked by the tool safety layer | Credential handling rules | Scripts that log in themselves (`tools/draw-day/*`) |
 | **3D very blurry on the owner's iPhone** (first real-phone test, 2026-11-16) | Phones were capped at 1.3× on 3× screens, edge smoothing was off on phones, and the auto-quality treated a 30 fps cap as overload and dropped to 0.75× | Phones 2× with MSAA, floor 1.3×, step down only under ~24 fps for 2 s; bigger crest name labels |
 | Owner wanted "max resolution on every screen" | Renderer still capped (2× phones, 1.75× computers); logos only 320 px | Native `devicePixelRatio` (≤ 3) everywhere; logos regenerated at 640 px from the originals (`process_logos.py … 640`, checkerboards re-cleaned) |
-| Girl's voice in the background music (and in the reveal stinger) | Original track "Dhol And Neon" has a female vocal for its first ~44 s; the stinger starts with it | New music = vocal-free 16-beat drop loop with exact loop points; new reveal hit = one bar of it (`tools/audio/devocal_music.py`) |
+| Girl's voice in the background music | "Dhol And Neon" has a high female vocal at ~0:09.5–0:25 | First a 10 s beat loop (too much removed); final: only that section cut, on the beat (`tools/audio/music_cut.py`); original reveal stinger restored |
+| VS card / names / logos looked soft on iPhones | A permanent `will-change: transform` on elements that zoom in from 20 % — Safari keeps them rasterised at the start scale | Rule removed (`cup.css`); browsers still accelerate the animations while they run |
+| Reactions "not working" | Floating emojis and the reaction bar sat below the VS screen / moments / champions overlays (and below the TV arena) | z-index 90 for floaters and the bar on audience + TV pages |
+| Find my match "notification not working" | There was no alert; the card only appeared after the first match | Card shown from setup; 🔔 Alert me + pop-up (`MyMatch.jsx`) |
+| Old player names in the live draw after the organisers replaced 3 players | Teams are copied into the draw when saved; Restart keeps them | Host final-list check warns with the exact differences and the fix |
+| Local dev server kept restarting during tests | OneDrive touches files in `server/node_modules`; `node --watch` restarts on each | New launch config **`server-stable`** (no watch) for testing |
+| Uploaded logos could fail on Safari after raising them to 640 px | Safari can't encode WebP → PNG could exceed the server's 400 KB | JPEG (on white) fallback when the PNG is too big |
 | 3D picture stretched during the full-screen show | The canvas kept the inline size when the arena went full screen (relied only on ResizeObserver) | Explicit `stage.resize()` when theatre mode toggles (`SmashArena.jsx`) |
 
 ### Team Auction (session 1, see change log for details)
@@ -406,6 +423,9 @@ Main/Kids switch; Setup (name, spin length, categories/order, lists by paste or 
 - Env: `PICKLEPRO_API` (default `http://localhost:4000/api`), `PICKLEPRO_SOCKET`, `ADMIN_PASSWORD` (else read from `server/.env`, never printed).
 
 ### Browser checks (how they were done)
+- **Use `server-stable`** (no watch mode) for tests: OneDrive touches files in `server/node_modules` and the `server` (watch) config then restarts mid-test. `server-stable` = `node --env-file-if-exists=server/.env server/src/index.js`.
+- **Matches PDF check without the host login:** in the audience page, `import()` the built `jspdf.es.min-*.js` and patch `jsPDF.API.save` to keep `this.output('blob')`; `import()` `fixturesPdf-*.js` and call `downloadFixtures(state)` with a `/state` JSON (or a view of a finished cup written to `client/dist/__test-state.json`, then delete it); render pages with the bundled `pdf-*.js` (worker `pdf.worker.min-*.mjs`) onto a canvas and screenshot; check the text with `getTextContent()`.
+- **Poster:** `marketing/match-draw-poster.html` (fonts in `marketing/fonts/`, QR `match-draw-qr.svg` made with the `qrcode` package) → `chrome --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1080,1350 --screenshot=match-draw-poster.png file:///…/match-draw-poster.html`. QR verified with OpenCV.
 - Start previews from `.claude/launch.json`: `server` (:4000) and `client-prod` (:4173 = production build via `vite preview`, proxies `/api` and `/socket.io` to :4000). Rebuild (`npm run build` in `client/`) before checking; **unregister the service worker and clear caches** in the page first, or you'll see the old build.
 - Audience at `http://localhost:4173/`, TV at `/tv`, host at `/admin` (needs the host password typed by a human, or drive the host with `tools/draw-day/*`).
 - Phone layout: 375×812 viewport; TV: 1366×768.
@@ -483,6 +503,15 @@ npm run build         # client production build (client/dist)
 
 ## 13. Current state, what next, limits
 
+**As of 2026-11-17 — final teams, music cut, matches PDF, alerts, poster (pushed to `main`)**
+- Pushed to `main` at the owner's request ("push to main dont ask"); see the change log entry of 2026-11-17 for the commit and live checks.
+- **Production data needs two host actions before the event** (the code can't do them — they need the host login):
+  1. **Main:** the live draw still has the OLD players (owner's test, arena open, 1 match drawn). The host page now shows a warning with the 3 differences. Fix: Tools → **↺ Restart draw** (type RESTART) → **⭐ Load ICC Season 2 teams** → **Save**. (Open the arena only at the event.)
+  2. **Kids:** no teams yet → switch to Kids → **⭐ Load ICC Season 2 teams** → **Save**.
+- Event: **Wednesday 18 Nov 2026, 6:30 PM**. Teaser poster + WhatsApp text in `marketing/` (`match-draw-poster.png`, `match-draw-whatsapp.txt`).
+- Tests: 1040/1040 server tests; local rehearsals Main (28 teams, updated players) and Kids (Final + 3rd place) at real speed — all checks passed; alerts (draw + knockout) verified in the browser; reactions verified with two simulated phones; Matches PDF verified (Main 7 pages / 14 cards, Kids 1 page / 2 cards; no numbers, courts, hashes or knockout; new players present).
+- Not verified: the host page visually (needs the password), sound on a real phone (I can't listen), the real TV.
+
 **As of 2026-11-16 (night)**
 - `main` = `73ccbd8` (+ docs-only commits). Live: voice-free music + reveal hit. Render and Vercel production serve it; verified live: main link = match draw, `/api/fixtures/state` 200 via Vercel, live socket receives `cup:state`, native-resolution 3D + 640 px logos served, auction under `/auction`.
 - **Production data right now:** Main = 28 Season 2 teams loaded by the owner, arena open, **1 test match drawn** → press **↺ Restart draw** before the real event. Kids = empty → **Load ICC Season 2 teams → Save** in Kids too.
@@ -525,6 +554,17 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-17 — Final teams, music cut 0:11–0:24, Matches PDF, no match numbers/courts, alerts, reactions, HD, poster
+- **Teams** (`season2.json`, from the organisers' final adult list image; kids list image identical to the app): Dink Floyd B **Amit Gala** (was Jimit Badani), Zero Love B **Manik Midha** (was Jigar Badani), Pickle Ke Chhichhore D **Nupur Chaudhary** (was Nupur Ankur Choudhari). Host page: **final-list check** warns when a draw's saved teams differ from this list and says how to fix it.
+- **Music**: the original track back with only the high female vocal cut (app 9.406–25.032 s, on the beat, 0.1 s crossfade; `tools/audio/music_cut.py`, 43.8 s); original reveal stinger restored; `devocal_music.py` (the 10 s loop of 2026-11-16) removed.
+- **No match numbers / courts / rounds** anywhere (VS card, match list, Find my match, toasts, 3D jumbotron "LIVE DRAW", HUD "Drawn N of 14", title card "Next draw"); courts setting removed from the host page; knockout names kept.
+- **📄 Matches PDF** (`fixturesPdf.js` rewritten): one VS card per league match (logos, names, players A–D, VS, six games), two per A4 page, after all teams are drawn; no knockout, numbers, courts or hashes.
+- **Find my match** visible from setup + **🔔 Alert me** pop-up when the followed team's match is drawn (after its show) or its knockout tie is set (`MyMatch.jsx`, `useFollow` in `live.js`); followed team's cards highlighted. Fixed in testing: alert cleared on Restart; knockout alert only when the opponent is known.
+- **Reactions**: floaters + bar above every overlay (they were hidden behind the VS screen and the TV arena); bar also shown before the draw.
+- **HD**: removed the permanent `will-change` on zooming text/logos (blurry on iPhones); uploaded logos 640 px (JPEG fallback when Safari's PNG would pass 400 KB).
+- **Poster**: `marketing/match-draw-poster.html/.png` (1080×1350, teaser "Who will you face?", Wed 18 Nov 6:30 PM, Find my match + Alert me, QR → main link) + `match-draw-whatsapp.txt`.
+- `.claude/launch.json`: `server-stable` (no watch) for testing.
 
 ### 2026-11-16 (late night) — Female vocal removed from the music and the reveal hit
 - Owner: "the girl sound in music I don't want, rest all sound is good". Spectrograms showed the vocal (vibrato lines ~350 Hz / ~950–1100 Hz) in 0–44 s of "Dhol And Neon" and at the start of the 15-s stinger used as `dhol-hit`; 45–57 s of the track is a clean dhol/electronic beat at 96 BPM.

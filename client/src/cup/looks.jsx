@@ -191,7 +191,7 @@ export function TeamLogo({ team, size = 40, className = '' }) {
   );
 }
 
-// ---------- Uploaded logos: square, max 256 px, WebP (PNG fallback) + its main colour ----------
+// ---------- Uploaded logos: square, max 640 px, WebP (PNG fallback) + its main colour ----------
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -205,7 +205,7 @@ export async function prepareLogo(source) {
   const src = typeof source === 'string' ? source : URL.createObjectURL(source);
   try {
     const img = await loadImage(src);
-    const S = 256;
+    const S = 640; // sharp on 3x phones and 4K TVs (stored WebP stays well under the 400 KB limit)
     const c = document.createElement('canvas');
     c.width = c.height = S;
     const g = c.getContext('2d');
@@ -213,9 +213,17 @@ export async function prepareLogo(source) {
     const w = img.naturalWidth * k;
     const h = img.naturalHeight * k;
     g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+    const color = mainColor(g, S);
     let dataUrl = c.toDataURL('image/webp', 0.86);
+    // Safari can't encode WebP: PNG, or JPEG (on white) if the PNG would pass the server's 400 KB limit.
     if (!dataUrl.startsWith('data:image/webp')) dataUrl = c.toDataURL('image/png');
-    return { dataUrl, color: mainColor(g, S) };
+    if (dataUrl.length * 0.75 > 380 * 1024) {
+      g.globalCompositeOperation = 'destination-over';
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, S, S);
+      dataUrl = c.toDataURL('image/jpeg', 0.88);
+    }
+    return { dataUrl, color };
   } finally {
     if (typeof source !== 'string') URL.revokeObjectURL(src);
   }

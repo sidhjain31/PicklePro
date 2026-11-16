@@ -28,6 +28,44 @@ export function CupAdmin() {
   return admin ? <Dashboard onLogout={logout} /> : <Login onLogin={() => setAdmin(true)} title="Match draw" />;
 }
 
+// Safety net: the organisers' final list ships with the app (season2.json). If the teams saved in
+// this draw differ from it (e.g. replaced players after a rehearsal), say exactly what differs and
+// what to tap — old names must never reach the real draw.
+function seasonDiff(state) {
+  const list = SEASON2[state.event === 'kids' ? 'kids' : 'main'] ?? [];
+  if (!state.teams.length || !list.length) return null;
+  const norm = x => String(x ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const byName = new Map(state.teams.map(t => [norm(t.name), t]));
+  const out = [];
+  let missing = 0;
+  for (const f of list) {
+    const t = byName.get(norm(f.name));
+    if (!t) { missing++; continue; }
+    for (const slot of SLOTS) {
+      if (norm(t.players[slot]) !== norm(f.players[slot])) out.push(`${f.name} ${slot}: ${t.players[slot] || '—'} → ${f.players[slot]}`);
+    }
+  }
+  // A different team list altogether (not the ICC Season 2 teams): nothing to compare.
+  if (missing > list.length / 2) return null;
+  if (missing) out.push(`${missing} team name${missing === 1 ? '' : 's'} differ from the final list`);
+  return out.length ? out : null;
+}
+
+function SeasonCheck({ state }) {
+  const diff = useMemo(() => seasonDiff(state), [state.teams, state.event]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!diff) return null;
+  const setup = state.phase === 'setup';
+  return (
+    <div className="alert season-check" role="alert">
+      <p><b>⚠️ This draw doesn't have the organisers' final team list yet</b> ({diff.length} difference{diff.length === 1 ? '' : 's'}):</p>
+      <ul>{diff.slice(0, 8).map(d => <li key={d}>{d}</li>)}{diff.length > 8 && <li>…and {diff.length - 8} more</li>}</ul>
+      <p>{setup
+        ? 'Fix: below, tap ⭐ Load ICC Season 2 teams, then Save.'
+        : 'Fix: Tools → ↺ Restart draw (type RESTART), then ⭐ Load ICC Season 2 teams → Save, then open the arena again.'}</p>
+    </div>
+  );
+}
+
 function Dashboard({ onLogout }) {
   const live = useCup('host');
   const { state, connected, serverNow, onReaction, openedAt } = live;
@@ -69,6 +107,7 @@ function Dashboard({ onLogout }) {
         </div>
       )}
       <CupSteps state={state} />
+      {state && <SeasonCheck state={state} />}
       {!state ? <ComingSoon unavailable={live.unavailable} host /> : (
         <main className="cup-main">
           {p === 'setup' && <Setup {...ctx} />}
@@ -327,10 +366,6 @@ function SettingsDesk({ state, run, busy }) {
           <button key={w} className={`chip${state.weapon === w ? ' on' : ''}`} disabled={busy} onClick={() => patch({ weapon: w })}>{WEAPON_INFO[w].emoji} {WEAPON_INFO[w].name}</button>
         ))}
       </div>
-      <p className="field-label">Courts (matches are spread over them in draw order)</p>
-      <div className="chips">
-        {[1, 2, 3, 4].map(n => <button key={n} className={`chip${state.courts === n ? ' on' : ''}`} disabled={busy} onClick={() => patch({ courts: n })}>{n}</button>)}
-      </div>
       <p className="hint">One show per match ≈ {Math.round((1800 + state.aimMs * 1.8 + 4200 + 8200) / 1000)} s. The last two teams are paired by fate.</p>
     </section>
   );
@@ -378,7 +413,7 @@ function DrawDesk({ state, run, busy, serverNow, openedAt }) {
               return r;
             })}
           >
-            {running ? `Show running… ${left}s` : justDrew ? 'Starting the show…' : lastTwo ? `🔗 Draw the last match (${state.nextTie} of ${state.totalTies})` : `🎯 Draw match ${state.nextTie} of ${state.totalTies}`}
+            {running ? `Show running… ${left}s` : justDrew ? 'Starting the show…' : lastTwo ? `🔗 Draw the last match (${state.ties.length}/${state.totalTies} drawn)` : `🎯 Draw the next match (${state.ties.length}/${state.totalTies} drawn)`}
           </button>
           <div className="row-actions"><StageTools /><MusicToggle /></div>
         </div>
@@ -590,7 +625,12 @@ function Tools({ state, run, busy }) {
         </p>
       </div>
       <div className="row-actions">
-        <button className="btn" disabled={busy || !state.ties.length} onClick={() => run(async () => (await import('./fixturesPdf.js')).downloadFixtures(state))}>📄 Fixtures PDF</button>
+        <button
+          className="btn"
+          disabled={busy || state.phase === 'setup' || state.phase === 'draw'}
+          title={state.phase === 'setup' || state.phase === 'draw' ? 'Available once every team is drawn' : 'Every match as a VS card'}
+          onClick={() => run(async () => (await import('./fixturesPdf.js')).downloadFixtures(state))}
+        >📄 Matches PDF</button>
         <a className="btn" href={cupUrl('/tv')} target="_blank" rel="noreferrer">📺 TV view</a>
       </div>
       <details className="danger-zone">
