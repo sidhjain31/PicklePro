@@ -30,6 +30,8 @@ export default defineConfig({
         // The PDF reader is host-only and large: never precache it on every phone.
         globIgnores: ['**/pdf.worker*', '**/pdf-*.js', '**/stage3d-*.js', '**/importTeams-*.js'],
         navigateFallbackDenylist: [/^\/api/, /^\/socket\.io/],
+        // A new version reloads pages left on an older one (public/sw-reload.js).
+        importScripts: ['sw-reload.js'],
       },
     }),
   ],

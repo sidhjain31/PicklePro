@@ -12,6 +12,7 @@ import { CupScreen } from './cup/CupScreen.jsx';
 import './cup/cup.css';
 import './styles.css';
 import './audience.css';
+import { autoRefresh } from './swUpdate.js';
 
 // After a redeploy, an already-open tab asks for old file names (e.g. the PDF library) that no
 // longer exist. Reload once to pick up the new version instead of failing silently.
@@ -43,3 +44,4 @@ function App() {
   return <Page key={ev} />;
 }
 createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>);
+autoRefresh(); // phones that opened the site before switch to the new version by themselves

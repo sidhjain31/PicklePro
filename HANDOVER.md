@@ -509,7 +509,7 @@ npm run build         # client production build (client/dist)
 
 ## 13. Current state, what next, limits
 
-**As of 2026-11-18 (match day)** — live score cards / fast score entry / totals / burst fix (change log of 2026-11-18): client only, **not pushed yet** (Vercel preview for the owner; production = `ebbf046` until pushed).
+**As of 2026-11-18** — live score cards, fast score entry, totals and the burst fix are live (`2b38f76`, client only, Render not redeployed); auto-refresh for phones on an older version + dateless poster pushed after that (change log 2026-11-18 later). Matches are played on **Saturday**; the draw is tonight.
 
 **As of 2026-11-17 (night) — Adults league standings, QF qualification and re-seeded knockout (pushed to `main`)**
 - Live since `11c40d5`. Rules in §5.1; change log entry of 2026-11-17 (night). Tests 1058/1058; local rehearsals Main + Kids passed under the new rules.
@@ -568,6 +568,10 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-18 (later) — Phones switch to a new version by themselves; poster without a date
+- **Auto-refresh**: the site is a PWA, so phones that opened it before kept showing the old version until a manual refresh (seen live after `2b38f76`). Now (1) `client/public/sw-reload.js`, loaded by the service worker (`workbox.importScripts` in `vite.config.js`): when a new version replaces an older one, the open pages reload once — this also reaches pages still running old code; a first visit is never reloaded. The reload is fired after activation, not inside `event.waitUntil` (that deadlocks: the reloaded page waits for the worker to finish activating — hit in local testing, never deployed). (2) `client/src/swUpdate.js`: pages check for a new version when they come back to the front, and reload on a new worker only when nobody is typing (host score boxes) and at most once a minute. Verified locally: older version installed → open once → reloaded by itself to the new one; normal visits don't reload; no loop.
+- **Poster** (`marketing/qualification-poster.*`, `qualification-whatsapp.txt`): no date or time (matches are on Saturday); "Track your team & every rival · Watch · compare · plan your game"; tile "Scout your rivals".
 
 ### 2026-11-18 (match day) — Live score cards for the audience, fast score entry, totals on every card
 - **Audience (Adults + Kids), after the draw:** the page opens on **Live scores** — one read-only card per match: both team names in full, every game with both pairs' full names (winning pair in green) and its points, **total points of both teams**, and the result in words (🏆 X won 4–2 / won on total points (3–3 in games) / 🤝 Draw · 3–3 / ● Live · n of 6 games / Not started yet). Live matches first, then results, then matches still to play. Then the standings, the knockout; Find my match and the teams list at the bottom. Knockout phase: champions → knockout score cards → bracket → standings → league results. No host hints on audience cards (`ScoreCard`, `ScoreBoard`, `resultOf`, `MatchFoot` in `Boards.jsx`; order in `CupLive.jsx`).
