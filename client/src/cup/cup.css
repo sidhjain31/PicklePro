@@ -10,7 +10,9 @@
 
 .cup-page { min-height: 100dvh; display: flex; flex-direction: column; }
 .cup-page .floaters, .cup-page .reaction-bar { z-index: 70; }
-.cup-page .resume-sound { z-index: 72; }
+/* Above every show overlay (VS, champions, alerts, effects): a silent screen must always show it. */
+.cup-screen .resume-sound, .cup-page .resume-sound { z-index: 130; }
+.cup-screen .resume-sound { animation: none; top: 50%; bottom: auto; transform: translate(-50%, -50%); font-size: 1.8rem; padding: 26px 40px; box-shadow: 0 0 0 6px rgb(244 224 77 / 0.35), 0 20px 60px rgb(0 0 0 / 0.6); }
 .cup-main { width: 100%; max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-content: start; flex: 1; }
 .cup-main > * { min-width: 0; }
 .cup-steps { width: min(100%, 1440px); justify-content: flex-start; scrollbar-width: none; }
@@ -734,3 +736,5 @@
 .mt-table .mt-name { white-space: normal; font-weight: 700; width: 100%; }
 .mt-table tr.me td { background: rgb(244 224 77 / 0.16); }
 .mm-why { margin: 0; color: var(--muted); }
+.cup-screen .screen-head .cup-switch { margin: 0; padding: 0; width: auto; }
+.cup-screen .screen-head .cup-switch a { font-size: 0.85rem; padding: 0.45em 0.9em; }

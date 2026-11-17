@@ -10,7 +10,7 @@ import { SmashArena } from './SmashArena.jsx';
 import { Bracket, ChampionBanner, CupSteps, Standings, TieList } from './Boards.jsx';
 import { cupUrl, useCup } from './live.js';
 import { Moments } from './Moments.jsx';
-import { ComingSoon } from './CupLive.jsx';
+import { ComingSoon, CupSwitch } from './CupLive.jsx';
 
 export function CupScreen() {
   const { state, connected, serverNow, onReaction, openedAt, unavailable } = useCup('screen');
@@ -49,6 +49,9 @@ export function CupScreen() {
         </div>
         <CupSteps state={state} />
         <div className="screen-tools"><StageTools /></div>
+        {/* Adults / Kids on the TV without reloading: a reload would block the sound until someone
+            taps the screen again (browser rule), and nobody taps a TV. */}
+        <CupSwitch />
       </header>
       {!state && <ComingSoon unavailable={unavailable} />}
       {state && (

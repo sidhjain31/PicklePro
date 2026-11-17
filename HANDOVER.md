@@ -491,7 +491,7 @@ npm run build         # client production build (client/dist)
 
 **On the day**
 - [ ] 15 min before: check UptimeRobot shows the server **Up** (it keeps it awake); if in doubt open https://picklepro-api.onrender.com/api/health (a sleeping server takes ~1 min), then `/admin` and log in.
-- [ ] TV: open https://pickle-pro-peach.vercel.app/tv, tap **Tap for sound** and **Full screen** once. Share https://pickle-pro-peach.vercel.app (QR on the TV).
+- [ ] TV: open https://pickle-pro-peach.vercel.app/tv, tap **Tap for sound** and **Full screen** once. Switch Adults ↔ Kids with the switch in the TV header (not a new URL: a reload needs another tap for sound; a big yellow "Tap to resume sound" appears if so). Share https://pickle-pro-peach.vercel.app (QR on the TV).
 - [ ] No pushes or deploys during the event.
 - [ ] **Open the arena** → **Draw match 1 … 14** (wait for each show; the button counts down). Results → **Lock knockout** → knockout results → champions.
 - [ ] If the host loses connection the show still runs for everyone; reconnect and continue. A double tap or two host phones can't draw twice.
@@ -570,6 +570,11 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-18 (night) — No sound on the Kids draw: TV switch + unmissable "Tap to resume sound"
+- Owner: sound worked for the Adults run, not for the Kids draw after it. Reproduced locally on the host page: switching Adults → Kids **in the same page** keeps sound (Kids show played 17 sounds after the Adults one). Sound is lost only when a page is **reloaded or opened fresh** (browser rule: no sound until a tap): the **TV page had no Adults/Kids switch** (showing Kids meant a new URL = reload), and today's auto-refresh also reloads open screens after a deploy. The "Tap to resume sound" pill sat under the full-screen VS/champion overlays (z 70 < 80) and at the bottom.
+- Fix: `CupScreen.jsx` header now has the **Adults / Kids switch** (no reload, sound stays on — verified: same page, title Kids, 🔊 Sound on); `.resume-sound` is above every overlay (z 130) on every page, and on the TV it is large and centred (no animation).
+- Event rule: switch draws with the on-page switch (host and TV), never by typing a new URL; after any deploy, tap each open screen once. No deploys during the event.
 
 ### 2026-11-18 (night) — UptimeRobot keep-awake confirmed
 - Owner asked to set up UptimeRobot: the owner's account already had an HTTP monitor on `https://picklepro-api.onrender.com/api/health` (Up 1 month 5 days, 100 %), so no duplicate was created. Links table, event checklist and known limits updated.
