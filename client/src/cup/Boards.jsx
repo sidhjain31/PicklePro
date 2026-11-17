@@ -131,18 +131,27 @@ export function MatchFoot({ state, tie }) {
 
 // Audience score card: both teams in full, every game with both pairs (full names) and the
 // points, totals and the result. Read only.
-export const ScoreCard = memo(function ScoreCard({ state, tie, mine = null }) {
+// Both teams (logos, full names) and the games won, big — top of a score card and the My team panel.
+export function ScoreHead({ state, tie }) {
   const A = teamOf(state, tie.a);
   const B = teamOf(state, tie.b);
   const side = s => (tie.winner === s ? ' won' : tie.winner ? ' lost' : '');
   return (
+    <div className="sc-teams">
+      <p className={`sc-team${side('a')}`}>{A && <TeamLogo team={A} size={34} />}<b>{A?.name ?? 'To be decided'}</b></p>
+      <p className="sc-games" aria-label={`Games ${tie.ga} to ${tie.gb}`}><b>{tie.ga}</b><span>–</span><b>{tie.gb}</b></p>
+      <p className={`sc-team sc-b${side('b')}`}><b>{B?.name ?? 'To be decided'}</b>{B && <TeamLogo team={B} size={34} />}</p>
+    </div>
+  );
+}
+
+export const ScoreCard = memo(function ScoreCard({ state, tie, mine = null }) {
+  const A = teamOf(state, tie.a);
+  const B = teamOf(state, tie.b);
+  return (
     <article className={`tie score-card${tie.winner ? ' decided' : ''}${mine && (tie.a === mine || tie.b === mine) ? ' mine' : ''}`} id={`tie-${tie.id}`}>
       {tie.stage !== 'L' && <header className="tie-head"><span className="tie-label">{tie.label}</span>{tie.note && <span className="tie-note">{tie.note}</span>}</header>}
-      <div className="sc-teams">
-        <p className={`sc-team${side('a')}`}>{A && <TeamLogo team={A} size={34} />}<b>{A?.name ?? 'To be decided'}</b></p>
-        <p className="sc-games" aria-label={`Games ${tie.ga} to ${tie.gb}`}><b>{tie.ga}</b><span>–</span><b>{tie.gb}</b></p>
-        <p className={`sc-team sc-b${side('b')}`}><b>{B?.name ?? 'To be decided'}</b>{B && <TeamLogo team={B} size={34} />}</p>
-      </div>
+      <ScoreHead state={state} tie={tie} />
       {A && B && (
         <ol className="sc-rows">
           {GAMES.map((g, i) => {
@@ -196,7 +205,7 @@ export function TieList({ state, hideSeq = null, mine = null, title = 'Matches',
 
 // Adults: league standings with the quarter-final qualification (qualify.js) — result, games,
 // points, status and the reason for every rank.
-const STATUS = { qualified: ['Qualified', 'q'], out: ['Out', 'o'], pending: ['Pending', 'p'], tie: ['Level · host decides', 't'] };
+export const STATUS = { qualified: ['Qualified', 'q'], out: ['Out', 'o'], pending: ['Pending', 'p'], tie: ['Level · host decides', 't'] };
 function QualifyTable({ state, mine, limit }) {
   const q = state.qualification;
   if (!q.complete) return null;

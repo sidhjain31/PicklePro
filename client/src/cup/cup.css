@@ -707,3 +707,30 @@
   .kids-table th, .kids-table td { padding: 6px 3px; }
   .kids-table th { font-size: 0.56rem; letter-spacing: 0.02em; }
 }
+
+/* ---------- My team panel (match day) ---------- */
+.my-team { border: 2px solid var(--ball); background: linear-gradient(160deg, rgb(18 58 143 / 0.95), rgb(10 31 85 / 0.95)); display: grid; gap: 12px; scroll-margin: 80px; }
+.my-team.pick select { width: 100%; padding: 0.7em; border-radius: 10px; font: 700 1rem var(--body); background: rgb(0 0 0 / 0.3); color: var(--line); border: 1px solid rgb(255 255 255 / 0.3); }
+.mt-lead { margin: 0; color: var(--muted); }
+.mt-head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+.mt-head h2 { margin: 0; font: 900 1.5rem/1 var(--display); text-transform: uppercase; overflow-wrap: break-word; }
+.mt-kicker { margin: 0 0 2px; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ball); }
+.mt-players { margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); }
+.mt-next { margin: 0; padding: 8px 12px; border-radius: 10px; background: rgb(244 224 77 / 0.14); color: var(--ball); font-weight: 800; }
+.mt-match { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: rgb(0 0 0 / 0.22); border: 1px solid rgb(255 255 255 / 0.12); }
+.mt-match.is-live { border-color: #ff8a8a; box-shadow: 0 0 0 1px rgb(255 138 138 / 0.4) inset; }
+.mt-see { justify-self: center; }
+.mt-sub { margin: 0; font-size: 0.7rem; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.mt-block { display: grid; gap: 8px; }
+.mt-rank { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.mt-rank > b { font: 900 3rem/1 var(--display); color: var(--ball); min-width: 1.6ch; text-align: center; }
+.mt-rank p { margin: 4px 0 2px; font-weight: 700; font-size: 0.9rem; }
+.mt-rank small { color: var(--muted); font-size: 0.75rem; }
+.mt-if { margin: 0; font-size: 0.88rem; }
+.mt-if b { color: var(--side-a-hi); }
+.mt-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.mt-table td { padding: 5px 4px; border-bottom: 1px solid rgb(255 255 255 / 0.08); white-space: nowrap; }
+.mt-table td:first-child { color: var(--ball); font-weight: 800; width: 2.2em; }
+.mt-table .mt-name { white-space: normal; font-weight: 700; width: 100%; }
+.mt-table tr.me td { background: rgb(244 224 77 / 0.16); }
+.mm-why { margin: 0; color: var(--muted); }

@@ -19,6 +19,8 @@ export function MyMatchAlert({ state, follow, onShow }) {
   const tie = team ? state.ties.find(t => t.a === team.key || t.b === team.key) : null;
   // Knockout: only once the opponent is known (a semi-final waits for the other quarter-final).
   const ko = team && state.knockout.locked ? state.knockout.ties.find(t => (t.a === team.key || t.b === team.key) && t.a && t.b && !t.winner) : null;
+  // Adults: the followed team is sure of a quarter-final place (qualify.js status).
+  const status = team && state.qualification ? state.qualification.rows.find(r => r.key === team.key)?.status ?? null : null;
   const seen = useRef(null);
   const [alert, setAlert] = useState(null);
 
@@ -27,14 +29,15 @@ export function MyMatchAlert({ state, follow, onShow }) {
       seen.current = null;
       return;
     }
-    const now = { cup: state.id, team: team.key, tie: tie?.id ?? null, ko: ko?.id ?? null };
+    const now = { cup: state.id, team: team.key, tie: tie?.id ?? null, ko: ko?.id ?? null, status };
     const before = seen.current;
     seen.current = now;
     // First look (page opened, alert just switched on, new draw): nothing to announce yet.
     if (!before || before.cup !== now.cup || before.team !== now.team) return;
     if (now.tie && !before.tie) setAlert({ tieId: now.tie, kind: 'draw' });
     else if (now.ko && now.ko !== before.ko) setAlert({ tieId: now.ko, kind: 'knockout' });
-  }, [state.id, team?.key, tie?.id, ko?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    else if (now.status === 'qualified' && before.status !== 'qualified' && !state.knockout.locked) setAlert({ kind: 'through' });
+  }, [state.id, team?.key, tie?.id, ko?.id, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A Restart / new draw: an open alert from the previous draw must go.
   useEffect(() => setAlert(null), [state.id]);
@@ -50,6 +53,23 @@ export function MyMatchAlert({ state, follow, onShow }) {
   }, [alert]);
 
   if (!alert || !team) return null;
+  if (alert.kind === 'through') {
+    const row = state.qualification?.rows.find(r => r.key === team.key);
+    return createPortal(
+      <div className="my-match" role="alertdialog" aria-label="Through to the quarter-finals">
+        <div className="mm-card">
+          <p className="mm-kicker">⭐ Through to the quarter-finals!</p>
+          <span className="mm-team"><TeamLogo team={team} size={0} className="mm-logo" /><b>{team.name}</b></span>
+          {row && <p className="mm-why">{row.reason}</p>}
+          <div className="mm-actions">
+            <button type="button" className="btn btn-primary" onClick={() => { setAlert(null); document.getElementById('my-team')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>See my team</button>
+            <button type="button" className="btn" onClick={() => setAlert(null)}>Close</button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
   const t = [...state.ties, ...state.knockout.ties].find(x => x.id === alert.tieId);
   if (!t || !t.a || !t.b) return null;
   const other = teamOf(state, t.a === team.key ? t.b : t.a);
