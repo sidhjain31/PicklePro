@@ -33,6 +33,11 @@ function drawnCup(n) {
   return { cup, now };
 }
 const win = (side, n = 4) => Array.from({ length: 6 }, (_, i) => ({ w: i < n ? side : side === 'a' ? 'b' : 'a' }));
+// Same with scores: the winner of a game scores 11, the loser `lose` (different per match -> no team level).
+const scored = (side, n = 4, lose = 5, winPts = 11) => Array.from({ length: 6 }, (_, i) => {
+  const w = i < n ? side : side === 'a' ? 'b' : 'a';
+  return w === 'a' ? { sa: winPts, sb: lose } : { sa: lose, sb: winPts };
+});
 
 // ---------- Rules ----------
 
@@ -112,40 +117,27 @@ test('cup: tie outcome — majority wins, 3-3 by points or decider', () => {
   assert.equal(core.outcome([{ w: 'a' }, { w: 'a' }, {}, {}, {}, {}], null).winner, null);
 });
 
-test('cup: results validation, standings order and the QF -> SF -> Final bracket', () => {
+test('cup: results validation and the adults bracket (details in qualify.test.js)', () => {
   const { cup, now } = drawnCup(16);
   const v0 = core.view(cup, now);
   assert.throws(() => core.setResult(cup, { tie: 'L1', games: [{ sa: 5, sb: 5 }, {}, {}, {}, {}, {}], now }), /level/);
   assert.throws(() => core.setResult(cup, { tie: 'L1', games: [{ w: 'b', sa: 11, sb: 2 }, {}, {}, {}, {}, {}], now }), /doesn't match/);
   assert.throws(() => core.setResult(cup, { tie: 'QF1', games: win('a'), now }), /Lock the knockout/);
-  // League: team "a" of match n wins 6-0 for n <= 2, 5-1 for n <= 4, else 4-2.
-  for (const t of v0.ties) core.setResult(cup, { tie: t.id, games: win('a', t.no <= 2 ? 6 : t.no <= 4 ? 5 : 4), now });
+  // League with scores (distinct points so no team is level): team "a" of match n wins.
+  for (const t of v0.ties) core.setResult(cup, { tie: t.id, games: scored('a', t.no <= 2 ? 6 : t.no <= 4 ? 5 : 4, t.no, 11 + t.no), now });
   const v1 = core.view(cup, now);
-  const top = v1.standings.slice(0, 8);
-  assert.deepEqual(top.slice(0, 2).map(r => r.gw), [6, 6]);
-  assert.deepEqual(top.slice(2, 4).map(r => r.gw), [5, 5]);
-  assert.ok(top.every(r => r.w === 1));
-  assert.throws(() => core.lockKnockout(cup, { seeds: top.slice(0, 7).map(r => r.key), now }), /8 different/);
-  core.lockKnockout(cup, { seeds: top.map(r => r.key), now });
+  assert.equal(v1.qualification.final, true);
+  const top = v1.qualification.top;
+  assert.equal(top.length, 8);
+  core.lockKnockout(cup, { now });
   const v2 = core.view(cup, now);
   assert.equal(v2.phase, 'knockout');
-  assert.equal(v2.knockout.ties[0].a, top[0].key);
-  assert.equal(v2.knockout.ties[0].b, top[7].key);
-  assert.equal(v2.knockout.ties[3].a, top[3].key);
-  assert.equal(v2.knockout.ties[3].b, top[4].key);
-  for (const id of ['QF1', 'QF2', 'QF3', 'QF4']) core.setResult(cup, { tie: id, games: win('b'), now });
+  assert.deepEqual([v2.knockout.ties[0].a, v2.knockout.ties[0].b], [top[0], top[7]]); // QF1 1v8
+  assert.deepEqual([v2.knockout.ties[3].a, v2.knockout.ties[3].b], [top[3], top[4]]); // QF4 4v5
+  for (const id of ['QF1', 'QF2', 'QF3', 'QF4', 'SF1', 'SF2', 'F']) core.setResult(cup, { tie: id, games: win('a'), now });
   const v3 = core.view(cup, now);
-  const sf1 = v3.knockout.ties.find(t => t.id === 'SF1');
-  assert.equal(sf1.a, top[7].key);
-  assert.equal(sf1.b, top[6].key);
-  core.setResult(cup, { tie: 'SF1', games: win('a'), now });
-  // Changing QF1 now would rewrite SF1, which has results: refused.
-  assert.throws(() => core.setResult(cup, { tie: 'QF1', games: win('a'), now }), /Semi-final 1 already has results/);
-  core.setResult(cup, { tie: 'SF2', games: win('a'), now });
-  core.setResult(cup, { tie: 'F', games: win('b'), now });
-  const v4 = core.view(cup, now);
-  assert.equal(v4.phase, 'done');
-  assert.equal(v4.knockout.champion, v4.knockout.ties.find(t => t.id === 'SF2').a);
+  assert.equal(v3.phase, 'done');
+  assert.equal(v3.knockout.champion, top[0]);
   assert.throws(() => core.unlockKnockout(cup, { now }), /has results/);
 });
 
@@ -218,7 +210,7 @@ test('cup API: full live flow with sealed, timed reveals over the socket', async
     assert.ok(states.length >= 4, 'socket got live states');
     assert.equal(auctionStates, 0, 'match-draw sockets never get auction state');
 
-    for (const t of s.ties) await ok(ctx, `${P}/result`, { method: 'PUT', body: { tie: t.id, games: win('a', t.no === 1 ? 6 : 4) } });
+    for (const t of s.ties) await ok(ctx, `${P}/result`, { method: 'PUT', body: { tie: t.id, games: scored('a', t.no === 1 ? 6 : 4, t.no) } });
     const st = await ok(ctx, `${P}/state`, { auth: false });
     await ok(ctx, `${P}/seed`, { method: 'POST', body: { seeds: st.standings.map(r => r.key) } });
     for (const id of ['QF1', 'QF2', 'QF3', 'QF4', 'SF1', 'SF2', 'F']) await ok(ctx, `${P}/result`, { method: 'PUT', body: { tie: id, games: win('a') } });

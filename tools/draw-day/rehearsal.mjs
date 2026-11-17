@@ -167,6 +167,9 @@ for (const t of s.ties) await must('/result', { method: 'PUT', body: { tie: t.id
 s = await state();
 check(s.ties.every(t => t.winner), 'every match has a winner');
 const seeds = s.standings.slice(0, s.knockout.seedCount).map(r => r.key);
+// Adults: the server builds the line-up from the standings; teams level on games + points (random
+// scores can do that) must be decided first, as the host would.
+for (const g of s.qualification?.blocking ?? []) await must('/tiebreak', { method: 'POST', body: { teams: g.teams, reason: 'Rehearsal: decided by the script', by: 'rehearsal' } });
 await must('/seed', { method: 'POST', body: { seeds } });
 for (let round = 0; round < 5; round++) {
   s = await state();

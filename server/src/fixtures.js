@@ -24,11 +24,15 @@ const locked = fn => {
   return run;
 };
 
-const FIELDS = ['event', 'name', 'status', 'aimMs', 'weapon', 'courts', 'teams', 'draws', 'results', 'seeds'];
+const FIELDS = ['event', 'name', 'status', 'aimMs', 'weapon', 'courts', 'teams', 'draws', 'results', 'seeds', 'tieBreaks', 'audit'];
+// Who made a host change (the host types a name once per device; one shared login otherwise).
+const who = b => core.clean(b?.by).slice(0, 40) || 'host';
 function plain(doc) {
   const o = doc.toObject({ minimize: false });
   const cup = Object.fromEntries(FIELDS.map(k => [k, o[k]]));
   cup.results ??= {};
+  cup.tieBreaks ??= []; // older draws (before 2026-11-17) have no decisions or audit log yet
+  cup.audit ??= [];
   cup.id = String(o._id);
   return cup;
 }
@@ -139,9 +143,10 @@ const actions = {
     return { seq: d.seq, tie: d.tie };
   }),
   undo: (b, ev) => mutate(ev, cup => core.undoMatch(cup, { seq: b.seq, now: clock() })),
-  result: (b, ev) => mutate(ev, cup => core.setResult(cup, { tie: b.tie, games: b.games, decider: b.decider ?? null, now: clock() })),
-  seed: (b, ev) => mutate(ev, cup => core.lockKnockout(cup, { seeds: b.seeds, now: clock() })),
-  unseed: (b, ev) => mutate(ev, cup => core.unlockKnockout(cup, { now: clock() })),
+  result: (b, ev) => mutate(ev, cup => core.setResult(cup, { tie: b.tie, games: b.games, decider: b.decider ?? null, deciderReason: b.deciderReason ?? null, confirm: b.confirm === true, by: who(b), now: clock() })),
+  tiebreak: (b, ev) => mutate(ev, cup => core.setTieBreak(cup, { teams: b.teams, reason: b.reason, clear: b.clear === true, by: who(b), now: clock() })),
+  seed: (b, ev) => mutate(ev, cup => core.lockKnockout(cup, { seeds: b.seeds, by: who(b), now: clock() })),
+  unseed: (b, ev) => mutate(ev, cup => core.unlockKnockout(cup, { by: who(b), now: clock() })),
   // A new match draw for this event; the old one stays in the database as history.
   // keepTeams: the host's Restart — same teams, logos and settings, nothing drawn (rehearsals, then
   // one Restart before the real draw so the audience sees a clean start).
@@ -169,7 +174,7 @@ export function cupApi(ev) {
   const ok = name => async (req, res) => res.json(await actions[name](req.body ?? {}, ev));
   api.get('/admin', requireAdmin, async (req, res) => {
     const { cup } = await load(ev);
-    res.json({ history: core.history(cup, clock()) });
+    res.json({ history: core.history(cup, clock()), audit: (cup.audit ?? []).slice(-300).reverse() });
   });
   api.patch('/settings', requireAdmin, ok('settings'));
   api.patch('/looks', requireAdmin, ok('looks'));
@@ -182,6 +187,7 @@ export function cupApi(ev) {
   api.put('/result', requireAdmin, ok('result'));
   api.post('/seed', requireAdmin, ok('seed'));
   api.post('/unseed', requireAdmin, ok('unseed'));
+  api.post('/tiebreak', requireAdmin, ok('tiebreak'));
   api.post('/new', requireAdmin, ok('fresh'));
   api.use((req, res) => res.status(404).json({ error: 'Not found' }));
   return api;

@@ -123,6 +123,8 @@ export const Cup = model('Cup', new Schema({
   draws: { type: Array, default: [] }, // [{ seq, tie, a, b, weapon, last, aimMs, startAt, revealA, revealB, doneAt, commitment, salt, voided }]
   results: { type: Schema.Types.Mixed, default: {} }, // { L1 | QF1 | SF1 | F | 3P: { a, b, games: [{ w, sa, sb }], decider } }
   seeds: { type: [String], default: [] },
+  tieBreaks: { type: Array, default: [] }, // adults: host decisions for level teams [{ teams, reason, by, at }]
+  audit: { type: Array, default: [] }, // every score change / decision [{ at, by, kind, ... }]
 }, { timestamps: true, minimize: false }));
 
 // Match-draw team logos, stored once per image (content hash) and served with long caching, so

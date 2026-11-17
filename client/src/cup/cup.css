@@ -611,3 +611,47 @@
 .confirm-word input { font-size: 1.2rem; padding: 10px 12px; border-radius: 10px; border: 2px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.08); color: #fff; letter-spacing: 0.08em; text-transform: uppercase; }
 .confirm-actions { justify-content: flex-end; }
 .restart-msg { margin: 0; flex-basis: 100%; font-weight: 700; }
+
+/* Adults standings + qualification */
+.st-badge { margin-left: 8px; font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: rgb(244 180 40 / 0.18); color: #f4c74d; vertical-align: middle; letter-spacing: 0.02em; }
+.st-badge.final { background: rgb(108 192 74 / 0.2); color: #8fd96b; }
+.st-rules { margin: 6px 0 10px; font-size: 0.9rem; }
+.st-rules summary { cursor: pointer; font-weight: 700; color: var(--ball); }
+.st-rules ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 3px; color: #dfe8ff; }
+.standings.qualify .st-team { min-width: 150px; white-space: normal; }
+.standings.qualify .st-why { white-space: normal; }
+.standings.qualify .st-team b { display: block; }
+.st-why { display: block; font-size: 0.72rem; color: var(--muted); font-weight: 500; line-height: 1.3; }
+.st-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
+.st-chip.q { background: rgb(108 192 74 / 0.22); color: #8fd96b; }
+.st-chip.o { background: rgb(255 255 255 / 0.08); color: var(--muted); }
+.st-chip.p { background: rgb(244 180 40 / 0.18); color: #f4c74d; }
+.st-chip.t { background: rgb(255 120 60 / 0.22); color: #ffa36b; }
+.standings.qualify tr.st-out td { opacity: 0.75; }
+.tie-flag.draw { color: #8fd2ff; }
+.tie-flag.ok { color: #8fd96b; }
+/* Host: qualification desk, tie decisions, score log */
+.results-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.host-name { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; }
+.host-name input { width: 140px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.25); background: rgb(255 255 255 / 0.06); color: #fff; }
+.tie-decision { margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 2px solid #f4b428; background: rgb(244 180 40 / 0.1); }
+.tie-decision.done { border-color: rgb(108 192 74 / 0.6); background: rgb(108 192 74 / 0.08); }
+.tie-decision p { margin: 4px 0; }
+.tie-decision input { flex: 1 1 220px; padding: 8px 10px; border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.25); background: rgb(255 255 255 / 0.06); color: #fff; }
+.qf-preview { margin: 10px 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.qf-preview li { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; padding: 8px 10px; border-radius: 10px; background: rgb(255 255 255 / 0.05); }
+.qf-preview li b { color: var(--ball); min-width: 40px; }
+.qf-preview li i { color: var(--muted); font-style: normal; }
+.score-log { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; max-height: 420px; overflow: auto; }
+.score-log > li { padding: 8px 10px; border-radius: 10px; background: rgb(255 255 255 / 0.05); font-size: 0.85rem; display: grid; gap: 2px; }
+.score-log small { color: var(--muted); }
+.score-log ul { margin: 2px 0 0; padding-left: 18px; color: #ffc98f; }
+.confirm-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: #ffd9a8; }
+/* Phones: the reason line already says "Won 5–1 · 133 pts" — drop the number columns so the Status
+   column stays on screen. */
+@media (max-width: 560px) {
+  .standings.qualify th:nth-child(3), .standings.qualify td:nth-child(3),
+  .standings.qualify th:nth-child(4), .standings.qualify td:nth-child(4),
+  .standings.qualify th:nth-child(5), .standings.qualify td:nth-child(5) { display: none; }
+  .standings.qualify .st-team { min-width: 0; }
+}

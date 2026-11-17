@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- WhatsApp poster (2026-11-17): match day is live in the app — scores, standings, who goes
+     through, the knockout, find your team. Deliberately no rules / points workflow (the organisers
+     explain those). Render: chrome --headless=new --hide-scrollbars --force-device-scale-factor=1
+     --window-size=1080,1350 --screenshot=qualification-poster.png file:///…/qualification-poster.html -->
+<html><head><meta charset="utf-8"><title>Match Day Live</title>
+<style>
+  @font-face { font-family: 'Big Shoulders'; src: url('fonts/big-shoulders-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Archivo'; src: url('fonts/archivo-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1080px; height: 1350px; overflow: hidden; font-family: Archivo, sans-serif; color: #fff;
+    background: radial-gradient(circle at 10% 6%, #2a6fe0 0, transparent 40%), radial-gradient(circle at 95% 96%, #3f9b3a 0, transparent 36%), linear-gradient(165deg, #071338, #0f2d78 55%, #071338); }
+  .wrap { height: 100%; padding: 34px 60px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .wrap > * { flex-shrink: 0; }
+  .top { display: flex; align-items: center; gap: 18px; }
+  .logo { width: 104px; filter: drop-shadow(0 8px 18px rgb(0 0 0 / .5)); }
+  .kicker { letter-spacing: .28em; font-weight: 800; color: #f4e04d; font-size: 22px; text-align: left; }
+  .kicker span { display: block; color: #cfe0ff; letter-spacing: .2em; font-size: 19px; margin-top: 6px; }
+  .live { margin-top: 34px; font-weight: 800; font-size: 24px; letter-spacing: .2em; color: #ff6b6b; border: 3px solid #ff6b6b; border-radius: 999px; padding: 6px 22px; }
+  h1 { margin-top: 14px; font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-size: 128px; line-height: .86; text-transform: uppercase; text-shadow: 0 8px 0 #050d26, 0 0 36px rgb(42 111 224 / .8); }
+  h1 em { font-style: normal; color: #f4e04d; display: block; }
+  .tiles { width: 100%; margin-top: 44px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tile { display: flex; align-items: center; gap: 18px; padding: 34px 22px; border-radius: 20px; background: rgb(8 24 70 / .88); border: 2px solid rgb(255 255 255 / .16); text-align: left; }
+  .tile .ic { font-size: 50px; line-height: 1; }
+  .tile b { font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-size: 40px; line-height: 1; text-transform: uppercase; }
+  .tile:nth-child(1) { border-color: #6cc04a; } .tile:nth-child(1) b { color: #a5ec84; }
+  .tile:nth-child(2) { border-color: #f4e04d; } .tile:nth-child(2) b { color: #f4e04d; }
+  .tile:nth-child(3) { border-color: #4fb3ff; } .tile:nth-child(3) b { color: #9fd6ff; }
+  .tile:nth-child(4) { border-color: #ff9f5a; } .tile:nth-child(4) b { color: #ffc28f; }
+  .tile:nth-child(5) { border-color: #c79bff; } .tile:nth-child(5) b { color: #ddc4ff; }
+  .tile:nth-child(6) { border-color: #ff6b6b; } .tile:nth-child(6) b { color: #ffb0b0; }
+  .scan { width: 100%; margin-top: 40px; display: grid; grid-template-columns: auto 1fr; gap: 30px; align-items: center; padding: 22px 26px; border-radius: 24px; background: linear-gradient(160deg, #f4e04d, #d9b92b); color: #0b1f52; text-align: left; }
+  .qr { width: 240px; height: 240px; border-radius: 16px; background: #fff; padding: 10px; }
+  .qr img { width: 100%; height: 100%; display: block; }
+  .scan h2 { font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 900; font-size: 70px; line-height: .9; text-transform: uppercase; }
+  .url { margin-top: 16px; display: inline-block; font-family: 'Big Shoulders', Impact, sans-serif; font-weight: 800; font-size: 36px; color: #fff; background: #0b1f52; padding: 6px 18px; border-radius: 12px; }
+  .when { margin-top: 14px; font-weight: 800; font-size: 24px; letter-spacing: .06em; }
+  .credit { margin-top: auto; padding: 0 0 16px; font-size: 16px; color: rgb(207 224 255 / .6); display: flex; align-items: center; gap: 8px; }
+  .sp-mark { position: relative; font-weight: 800; font-size: 19px; color: rgb(255 255 255 / .78); padding-top: 4px; }
+  .sp-mark b { font-style: italic; font-weight: 900; margin-right: 3px; }
+  .sp-mark svg { position: absolute; left: -3px; top: -1px; width: 30px; }
+</style></head>
+<body><div class="wrap">
+  <div class="top">
+    <img class="logo" src="../client/public/logo.png" alt="ICC Pickleball">
+    <p class="kicker">ICC PICKLEBALL · SEASON 2<span>MATCH DAY · ADULTS &amp; KIDS</span></p>
+  </div>
+  <p class="live">● LIVE IN THE APP</p>
+  <h1>Track every team <em>live</em></h1>
+
+  <div class="tiles">
+    <div class="tile"><span class="ic">🎾</span><b>Every game’s score</b></div>
+    <div class="tile"><span class="ic">📊</span><b>Live standings</b></div>
+    <div class="tile"><span class="ic">✅</span><b>Who’s through</b></div>
+    <div class="tile"><span class="ic">🏆</span><b>Quarters → Final</b></div>
+    <div class="tile"><span class="ic">🔎</span><b>Find your team</b></div>
+    <div class="tile"><span class="ic">👑</span><b>The champions</b></div>
+  </div>
+
+  <div class="scan">
+    <div class="qr"><img src="match-draw-qr.svg" alt=""></div>
+    <div>
+      <h2>Scan &amp; follow your team</h2>
+      <p class="url">pickle-pro-peach.vercel.app</p>
+      <p class="when">WED 18 NOV · 6:30 PM</p>
+    </div>
+  </div>
+
+  <p class="credit">Powered by <span class="sp-mark"><svg viewBox="0 0 120 40" aria-hidden="true"><defs><linearGradient id="sp-g" x1="0" x2="1"><stop offset="0" stop-color="#1f8fff"/><stop offset="1" stop-color="#6cc04a"/></linearGradient></defs><path d="M4 30 C 30 6, 80 -2, 116 10 C 80 4, 40 12, 14 34 Z" fill="url(#sp-g)"/></svg><b>SP</b> Tech</span></p>
+</div></body></html>

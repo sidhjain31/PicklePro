@@ -10,7 +10,8 @@ import { ConnectionBanner, Header } from '../Live.jsx';
 import { ResumeSoundPrompt, StageTools } from '../Stage.jsx';
 import { MusicToggle, SmashArena } from './SmashArena.jsx';
 import { Bracket, ChampionBanner, CupSteps, Standings, TeamsGrid, TieCard, TieList } from './Boards.jsx';
-import { AIM_MAX, AIM_MIN, GAMES, PALETTE, SLOTS, WEAPONS, proofText } from './core.js';
+import { AIM_MAX, AIM_MIN, GAMES, PALETTE, SLOTS, WEAPONS, ordinal, proofText } from './core.js';
+import { ADULT_FORMAT } from './qualify.js';
 import { colorOf, prepareLogo, useLogo } from './looks.jsx';
 import { ComingSoon, CupSwitch } from './CupLive.jsx';
 import { ModuleNav } from '../ModuleNav.jsx';
@@ -78,15 +79,22 @@ function useConfirm() {
     setAsk({ ...opts, resolve });
   }), []);
   const close = ok => {
-    ask?.resolve(ok);
+    ask?.resolve(ok && ask.input ? typed.trim() : ok);
     setAsk(null);
   };
-  const ready = !ask?.word || typed.trim().toUpperCase() === ask.word;
+  const ready = ask?.input ? typed.trim().length >= 3 : !ask?.word || typed.trim().toUpperCase() === ask.word;
   const dialog = ask && createPortal(
     <div className="confirm-back" role="dialog" aria-modal="true" aria-label={ask.title} onClick={e => e.target === e.currentTarget && close(false)}>
       <form className="confirm-card" onSubmit={e => { e.preventDefault(); if (ready) close(true); }}>
         <h3>{ask.title}</h3>
         {ask.body && <p>{ask.body}</p>}
+        {ask.list?.length > 0 && <ul className="confirm-list">{ask.list.map(x => <li key={x}>{x}</li>)}</ul>}
+        {ask.input && (
+          <label className="confirm-word">
+            <span>{ask.input}</span>
+            <input value={typed} onChange={e => setTyped(e.target.value)} autoFocus maxLength={200} aria-label={ask.input} />
+          </label>
+        )}
         {ask.word && (
           <label className="confirm-word">
             <span>Type <b>{ask.word}</b> to confirm</span>
@@ -102,6 +110,25 @@ function useConfirm() {
     document.body,
   );
   return [confirm, dialog];
+}
+
+// Who is entering scores (one shared host login): typed once per device, sent with every change.
+const HOST_NAME = 'team-draw:cup-host-name';
+const hostName = () => {
+  try {
+    return localStorage.getItem(HOST_NAME) || '';
+  } catch {
+    return '';
+  }
+};
+function HostName() {
+  const [v, setV] = useState(hostName);
+  return (
+    <label className="host-name">
+      <span>Your name (score log)</span>
+      <input value={v} maxLength={40} placeholder="e.g. Sidh" onChange={e => { setV(e.target.value); try { localStorage.setItem(HOST_NAME, e.target.value.trim()); } catch { /* storage blocked */ } }} />
+    </label>
+  );
 }
 
 function Dashboard({ onLogout }) {
@@ -153,11 +180,12 @@ function Dashboard({ onLogout }) {
           {p === 'draw' && <DrawDesk {...ctx} />}
           {(p === 'knockout' || p === 'done') && <ChampionBanner state={state} />}
           {(p === 'knockout' || p === 'done') && <KnockoutDesk {...ctx} />}
-          {p === 'league' && <SeedDesk {...ctx} />}
+          {p === 'league' && (state.qualification ? <QualifyDesk {...ctx} /> : <SeedDesk {...ctx} />)}
           {p !== 'setup' && p !== 'draw' && <ResultsDesk {...ctx} />}
           {p !== 'setup' && p !== 'draw' && <Standings state={state} />}
           {p !== 'setup' && <LooksDesk state={state} run={run} busy={busy} />}
           {p !== 'setup' && <Fairness state={state} />}
+          {p !== 'setup' && <ScoreLog state={state} />}
           <Tools {...ctx} />
         </main>
       )}
@@ -488,14 +516,33 @@ function DrawDesk({ state, run, busy, serverNow, openedAt, confirm }) {
 
 // ---------- Results ----------
 
-function TieEditor({ state, tie, run, busy }) {
+function TieEditor({ state, tie, run, busy, confirm }) {
   const A = teamOf(state, tie.a);
   const B = teamOf(state, tie.b);
   const [scores, setScores] = useState(() => tie.games.map(g => [g.sa ?? '', g.sb ?? '']));
   const sig = JSON.stringify(tie.games);
   useEffect(() => setScores(tie.games.map(g => [g.sa ?? '', g.sb ?? ''])), [sig]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!A || !B) return <TieCard state={state} tie={tie} />;
-  const send = (games, decider = tie.decider) => run(() => cupApi('/result', { method: 'PUT', body: { tie: tie.id, games, decider } }));
+  // Corrections that change the top 8, the seeding or a later knockout round come back with the list
+  // of changes: show it and send again only if the host confirms.
+  const send = (games, decider = tie.decider, deciderReason = null) => run(async () => {
+    const body = { tie: tie.id, games, decider, deciderReason, by: hostName() };
+    try {
+      return await cupApi('/result', { method: 'PUT', body });
+    } catch (err) {
+      if (err.data?.code !== 'CONFIRM') throw err;
+      const ok = await confirm({ title: 'Confirm this correction', body: err.message, list: err.data.changes, okLabel: 'Apply the correction' });
+      return ok ? cupApi('/result', { method: 'PUT', body: { ...body, confirm: true } }) : null;
+    }
+  });
+  const adultKnockout = Boolean(state.qualification) && tie.stage !== 'L';
+  const decide = async side => {
+    if (tie.decider === side) return send(tie.games, null);
+    if (!adultKnockout) return send(tie.games, side);
+    const name = teamOf(state, tie[side])?.name;
+    const reason = await confirm({ title: `${name} wins this 3–3?`, body: 'Only when the points can’t decide it. Everyone will see the reason.', input: 'Reason (e.g. golden point, agreed by both captains)', okLabel: 'Record decision' });
+    if (reason) send(tie.games, side, reason);
+  };
   const setWinner = (i, side) => {
     const games = tie.games.map((g, k) => (k !== i ? g : g.w === side ? { w: null, sa: null, sb: null } : { w: side, sa: null, sb: null }));
     send(games);
@@ -530,22 +577,138 @@ function TieEditor({ state, tie, run, busy }) {
       {(tie.needsDecider || tie.decider) && (
         <div className="te-decider">
           <span>3–3 decider:</span>
-          <button className={`chip${tie.decider === 'a' ? ' on' : ''}`} disabled={busy} onClick={() => send(tie.games, tie.decider === 'a' ? null : 'a')}>{A.name}</button>
-          <button className={`chip${tie.decider === 'b' ? ' on' : ''}`} disabled={busy} onClick={() => send(tie.games, tie.decider === 'b' ? null : 'b')}>{B.name}</button>
+          <button className={`chip${tie.decider === 'a' ? ' on' : ''}`} disabled={busy} onClick={() => decide('a')}>{A.name}</button>
+          <button className={`chip${tie.decider === 'b' ? ' on' : ''}`} disabled={busy} onClick={() => decide('b')}>{B.name}</button>
         </div>
       )}
-      <p className="hint">Tap the winning pair, or type the points (the winner follows the score).</p>
+      <p className="hint">Tap the winning pair, or type the points (the winner follows the score). {state.qualification ? 'Points rank the draws and equal winners and decide a knockout 3–3 — enter them whenever you can.' : ''}</p>
     </TieCard>
   );
 }
 
-function ResultsDesk({ state, run, busy }) {
-  const done = state.ties.filter(t => t.winner).length;
+function ResultsDesk({ state, run, busy, confirm }) {
+  const q = state.qualification;
+  const done = q ? q.complete : state.ties.filter(t => t.winner).length;
   return (
     <>
-      <p className="desk-note">League results: <b>{done}/{state.ties.length}</b> matches decided</p>
-      <TieList state={state} title="Matches · enter results" render={t => <TieEditor key={t.id} state={state} tie={t} run={run} busy={busy} />} />
+      <div className="desk-note results-head">
+        <span>League results: <b>{done}/{q ? q.total : state.ties.length}</b> matches complete{q ? ' (all 6 games have a winner)' : ''}</span>
+        <HostName />
+      </div>
+      <TieList state={state} title="Matches · enter results" render={t => <TieEditor key={t.id} state={state} tie={t} run={run} busy={busy} confirm={confirm} />} />
     </>
+  );
+}
+
+// Adults: the quarter-final line-up comes from the final league standings (never hand-picked).
+// Teams level on games and points where it matters are decided here, with a reason.
+function TieDecision({ state, group, run, busy }) {
+  const nameOf = k => teamOf(state, k)?.name ?? k;
+  const [order, setOrder] = useState(group.teams);
+  const [reason, setReason] = useState(group.reason ?? '');
+  const [open, setOpen] = useState(!group.resolved);
+  const move = (i, d) => {
+    const next = [...order];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    setOrder(next);
+  };
+  const where = group.kind === 'cut' ? `ranks ${group.from}–${group.to}: the top-${ADULT_FORMAT.qualifiers} cut` : `ranks ${group.from}–${group.to}: seeding`;
+  return (
+    <div className={`tie-decision${group.resolved ? ' done' : ''}`}>
+      <p><b>{group.resolved ? '✅ Decided' : '⚠️ Level on games and points'}</b> ({where}){group.pointsMissing ? ' — some game points are missing; entering them may settle it' : ''}</p>
+      {group.resolved && !open && (
+        <p className="hint">
+          Order: {group.teams.map(nameOf).join(' › ')} — “{group.reason}” ({group.by}, {new Date(group.at).toLocaleString()})
+          {' '}<button type="button" className="link" onClick={() => setOpen(true)}>Change</button>
+          {' '}<button type="button" className="link" disabled={busy} onClick={() => run(() => cupApi('/tiebreak', { method: 'POST', body: { teams: group.teams, clear: true, by: hostName() } }))}>Clear</button>
+        </p>
+      )}
+      {open && (
+        <>
+          <ol className="seed-list">
+            {order.map((k, i) => (
+              <li key={k}>
+                <b>{group.from + i}</b>
+                <span>{nameOf(k)}</span>
+                <button className="btn btn-small" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">↑</button>
+                <button className="btn btn-small" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label="Move down">↓</button>
+              </li>
+            ))}
+          </ol>
+          <div className="row-actions">
+            <input value={reason} onChange={e => setReason(e.target.value)} maxLength={200} placeholder="Reason (shown to everyone)" aria-label="Reason for this order" />
+            <button className="btn btn-primary" disabled={busy || reason.trim().length < 3} onClick={() => run(() => cupApi('/tiebreak', { method: 'POST', body: { teams: order, reason, by: hostName() } }))}>Save decision</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function QualifyDesk({ state, run, busy, confirm }) {
+  const q = state.qualification;
+  const nameOf = k => (k ? teamOf(state, k)?.name : '—');
+  const ranked = q.rows.filter(r => r.tier < 4).map(r => r.key);
+  const top = q.top ?? ranked.slice(0, q.qualifiers);
+  const decisions = q.tieGroups.filter(g => g.kind !== 'below');
+  return (
+    <section className="cup-card">
+      <h2 className="card-title">🔒 Quarter-final line-up</h2>
+      <p className="hint">
+        {q.final
+          ? (q.top ? 'All league matches are complete — the line-up below comes straight from the standings.' : 'All league matches are complete, but some teams are level — decide them below.')
+          : `Provisional: ${q.complete} of ${q.total} league matches complete. The line-up is set from the standings once every match is complete.`}
+      </p>
+      {decisions.map(g => <TieDecision key={`${g.teams.join()}|${g.resolved}`} state={state} group={g} run={run} busy={busy} />)}
+      {!q.top && <p className="hint">Preview — not final until every league match is complete and level teams are decided.</p>}
+      <ol className="qf-preview">
+        {ADULT_FORMAT.qfPairs.map(([x, y], i) => (
+          <li key={i}><b>QF{i + 1}</b> <span>{ordinal(x)} {nameOf(top[x - 1])}</span> <i>vs</i> <span>{ordinal(y)} {nameOf(top[y - 1])}</span></li>
+        ))}
+      </ol>
+      <div className="row-actions">
+        <button
+          className="btn btn-primary btn-big"
+          disabled={busy || !q.top}
+          onClick={async () => {
+            if (await confirm({ title: 'Lock & reveal the quarter-finals?', body: 'Everyone sees the line-up now. You can unlock it again until a quarter-final has a result.', okLabel: '🔒 Lock & reveal' })) {
+              run(() => cupApi('/seed', { method: 'POST', body: { by: hostName() } }));
+            }
+          }}
+        >🔒 Lock &amp; reveal the quarter-finals</button>
+      </div>
+    </section>
+  );
+}
+
+// Every score change and decision: who, when, before → after (host only).
+const gamesText = games => (games ?? []).map(g => (g.sa != null && g.sb != null ? `${g.sa}-${g.sb}` : g.w ? (g.w === 'a' ? 'W·' : '·W') : '—')).join('  ');
+function ScoreLog({ state }) {
+  const [log, setLog] = useState(null);
+  const [error, setError] = useState('');
+  const load = () => cupApi('/admin').then(d => { setLog(d.audit ?? []); setError(''); }, e => setError(e.message));
+  useEffect(() => { if (log) load(); }, [state.lastChangeAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <section className="cup-card">
+      <h2 className="card-title">📝 Score log</h2>
+      {!log ? <button className="btn" onClick={load}>Show every score change</button> : (
+        <ol className="score-log">
+          {log.length === 0 && <li className="hint">No changes yet.</li>}
+          {log.map((e, i) => (
+            <li key={i}>
+              <small>{new Date(e.at).toLocaleString()} · {e.by}</small>
+              {e.kind === 'result' && <span><b>{e.label}</b> ({e.a} vs {e.b}): {e.before ? gamesText(e.before.games) : 'empty'} → {e.after ? gamesText(e.after.games) : 'cleared'}{e.reason ? ` · host decision: ${e.reason}` : ''}</span>}
+              {e.kind === 'tiebreak' && <span><b>Level teams decided</b>: {e.teams.join(' › ')} — “{e.reason}”</span>}
+              {e.kind === 'tiebreak-cleared' && <span><b>Decision cleared</b>: {e.teams.join(', ')}</span>}
+              {e.kind === 'lock' && <span><b>Knockout locked</b>: {e.seeds.join(', ')}</span>}
+              {e.kind === 'unlock' && <span><b>Knockout unlocked</b></span>}
+              {e.changes?.length > 0 && <ul>{e.changes.map(c => <li key={c}>{c}</li>)}</ul>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 
@@ -608,10 +771,10 @@ function KnockoutDesk({ state, run, busy, confirm }) {
       <section className="cup-section">
         <h2 className="section-title">Knockout · enter results</h2>
         <div className="tie-grid">
-          {state.knockout.ties.map(t => <TieEditor key={t.id} state={state} tie={t} run={run} busy={busy} />)}
+          {state.knockout.ties.map(t => <TieEditor key={t.id} state={state} tie={t} run={run} busy={busy} confirm={confirm} />)}
         </div>
         {!any && (
-          <button className="btn" disabled={busy} onClick={async () => { if (await confirm({ title: 'Unlock the knockout line-up?', body: 'You can then change it and lock it again.', okLabel: '🔓 Unlock' })) run(() => cupApi('/unseed', { method: 'POST' })); }}>
+          <button className="btn" disabled={busy} onClick={async () => { if (await confirm({ title: 'Unlock the knockout line-up?', body: 'You can then change it and lock it again.', okLabel: '🔓 Unlock' })) run(() => cupApi('/unseed', { method: 'POST', body: { by: hostName() } })); }}>
             🔓 Unlock line-up
           </button>
         )}

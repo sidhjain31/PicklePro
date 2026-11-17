@@ -5,8 +5,10 @@
 //
 // Format (from the organisers' sheet): every team plays one tie against a drawn opponent. A tie is
 // six doubles games, same categories against each other: A/B, C/D, A/C, B/D, A/D, B/C.
-// Then a knockout: 8+ teams -> QF (1v8, 2v7, 3v6, 4v5) -> SF (QF1/QF2, QF3/QF4) -> Final;
-// fewer teams (kids, 4) -> Final (1st v 2nd) + 3rd/4th place (3rd v 4th).
+// Adults (8+ teams): league ranking, quarter-final qualification and the knockout follow
+// qualify.js (tiers, draws, re-seeded semis, recorded host decisions). Fewer teams (kids, 4) keep
+// the original rules: 3-3 decided by points or the host, Final (1st v 2nd) + 3rd/4th place.
+import { ADULT_FORMAT, knockoutOutcome, leagueResult, pointsComplete, rankLeague, semiFinalPairs } from './qualify.js';
 
 export const SLOTS = ['A', 'B', 'C', 'D'];
 export const GAMES = [['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'D'], ['B', 'C']];
@@ -50,6 +52,8 @@ export function newCup({ event = 'main', name } = {}) {
     draws: [],
     results: {},
     seeds: [],
+    tieBreaks: [], // adults: host decisions for teams level on games + points [{ teams, reason, by, at }]
+    audit: [], // every score change / decision [{ at, by, kind, ... }]
   };
 }
 
@@ -120,7 +124,8 @@ function tieOf(cup, t) {
     return { w: g?.w ?? null, sa: g?.sa ?? null, sb: g?.sb ?? null };
   });
   const decider = valid ? r.decider ?? null : null;
-  return { ...t, games, decider, ...outcome(games, decider) };
+  const deciderNote = valid ? r.deciderNote ?? null : null;
+  return { ...t, games, decider, deciderNote, ...outcome(games, decider) };
 }
 
 const winnerOf = t => (t?.winner ? t[t.winner] : null);
@@ -147,6 +152,12 @@ function standingsOf(teams, league) {
     .map(({ order, ...r }, i) => ({ ...r, rank: i + 1 }));
 }
 
+// Adults knockout match: games, then (3-3) cumulative points, then the host's recorded decision.
+const adultTie = t => {
+  const o = knockoutOutcome(t);
+  return { ...t, winner: o.winner, needsDecider: o.needsDecider, needsPoints: o.needsPoints, complete: o.complete };
+};
+
 function knockoutOf(cup) {
   const format = formatOf(cup.teams.length);
   const seeds = cup.status === 'KNOCKOUT' ? cup.seeds ?? [] : [];
@@ -154,11 +165,13 @@ function knockoutOf(cup) {
   const make = (id, stage, label, note, a, b, court) => tieOf(cup, { id, stage, label, note, a, b, court });
   const ties = [];
   if (format === 'qf') {
-    const qf = [[1, 8], [2, 7], [3, 6], [4, 5]].map(([x, y], i) =>
-      make(`QF${i + 1}`, 'QF', `Quarter-final ${i + 1}`, `${ordinal(x)} vs ${ordinal(y)}`, seed(x), seed(y), (i % 2) + 1));
-    const sf = [[0, 1], [2, 3]].map(([x, y], i) =>
-      make(`SF${i + 1}`, 'SF', `Semi-final ${i + 1}`, `Winners of QF ${x + 1} & QF ${y + 1}`, winnerOf(qf[x]), winnerOf(qf[y]), i + 1));
-    ties.push(...qf, ...sf, make('F', 'F', 'Final', 'Winners of the semi-finals', winnerOf(sf[0]), winnerOf(sf[1]), 1));
+    const qf = ADULT_FORMAT.qfPairs.map(([x, y], i) =>
+      adultTie(make(`QF${i + 1}`, 'QF', `Quarter-final ${i + 1}`, `${ordinal(x)} vs ${ordinal(y)}`, seed(x), seed(y), null)));
+    // Semi-finals re-seeded: the four winners by league rank, best v 4th-best, 2nd v 3rd.
+    const pairs = semiFinalPairs(qf.map(t => (t.winner ? { key: t[t.winner], seed: seeds.indexOf(t[t.winner]) + 1 } : null)));
+    const sf = ADULT_FORMAT.sfPairs.map(([x, y], i) =>
+      adultTie(make(`SF${i + 1}`, 'SF', `Semi-final ${i + 1}`, `Quarter-final winners by league rank: ${ordinal(x)} vs ${ordinal(y)}`, pairs?.[i][0] ?? null, pairs?.[i][1] ?? null, null)));
+    ties.push(...qf, ...sf, adultTie(make('F', 'F', 'Final', 'Winners of the semi-finals', winnerOf(sf[0]), winnerOf(sf[1]), null)));
   } else {
     ties.push(make('F', 'F', 'Final', '1st vs 2nd', seed(1), seed(2), 1));
     ties.push(make('3P', '3P', '3rd / 4th place', '3rd vs 4th', seed(3), seed(4), 2));
@@ -195,6 +208,16 @@ export function view(cup, now) {
       }));
     }
   }
+  const adult = formatOf(teams.length) === 'qf';
+  if (adult) {
+    // League: decided by games only; 3-3 is a draw (never decided by points or the host).
+    for (let i = 0; i < league.length; i++) {
+      const t = league[i];
+      const res = leagueResult(t);
+      league[i] = { ...t, winner: res === 'a' || res === 'b' ? res : null, draw: res === 'draw', complete: Boolean(res), needsDecider: false, pointsMissing: t.played > 0 && !pointsComplete(t) };
+    }
+  }
+  const qualification = adult ? rankLeague(teams, league, cup.tieBreaks ?? []) : null;
   const knockout = knockoutOf(cup);
   const allPaired = teams.length > 0 && paired.size === teams.length;
   const phase = cup.status === 'SETUP' ? 'setup'
@@ -229,7 +252,9 @@ export function view(cup, now) {
       commitment: running.commitment ?? null,
     },
     lastSeq: active.at(-1)?.seq ?? null,
-    standings: standingsOf(teams, league),
+    lastChangeAt: cup.audit?.at(-1)?.at ?? null, // the host's score log reloads when this moves
+    standings: adult ? qualification.rows : standingsOf(teams, league),
+    qualification,
     knockout,
     seeds: cup.status === 'KNOCKOUT' ? cup.seeds : [],
     now,
@@ -353,11 +378,16 @@ export function undoMatch(cup, { seq, now }) {
 const score = (v, label) => {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
-  if (!Number.isInteger(n) || n < 0 || n > 99) fail(400, `${label}: points must be 0–99`);
+  if (!Number.isInteger(n) || n < 0 || n > 999) fail(400, `${label}: points must be a whole number from 0 to 999`);
   return n;
 };
 
-export function setResult(cup, { tie, games, decider = null, now }) {
+// A host error that carries extra data for the page (e.g. the list of changes to confirm).
+const failWith = (status, message, details) => { throw Object.assign(cupError(status, message), { details }); };
+const sameSet = (a, b) => a.length === b.length && a.every(k => b.includes(k));
+const log = (cup, entry) => { cup.audit = [...(cup.audit ?? []), entry].slice(-2000); };
+
+export function setResult(cup, { tie, games, decider = null, deciderReason = null, confirm = false, by = 'host', now }) {
   const v = view(cup, now);
   if (!['league', 'knockout', 'done'].includes(v.phase)) fail(409, 'Results open once every match is drawn');
   const all = [...v.ties, ...v.knockout.ties];
@@ -381,26 +411,125 @@ export function setResult(cup, { tie, games, decider = null, now }) {
     return { w, sa, sb };
   });
   if (decider !== null && decider !== 'a' && decider !== 'b') fail(400, 'decider must be a, b or empty');
-  const before = { ...cup.results };
-  const next = { a: t.a, b: t.b, games: clean6, decider };
-  if (hasData(next)) cup.results[tie] = next;
-  else delete cup.results[tie];
-  // A changed knockout winner must not silently rewrite a later round that already has results.
-  const after = view(cup, now).knockout.ties;
-  for (const k of v.knockout.ties) {
-    const r = before[k.id];
-    if (k.id === tie || !hasData(r) || r.a !== k.a || r.b !== k.b) continue;
-    const now2 = after.find(x => x.id === k.id);
-    if (now2.a !== k.a || now2.b !== k.b) {
-      cup.results = before;
-      fail(409, `${k.label} already has results and depends on this match — clear ${k.label} first`);
+  const adult = formatOf(cup.teams.length) === 'qf';
+  const prev = cup.results?.[tie] && cup.results[tie].a === t.a && cup.results[tie].b === t.b ? cup.results[tie] : null;
+  let deciderNote = null;
+  if (adult && decider && decider === prev?.decider) {
+    // The editor resends the stored decision with every edit: drop it once the score no longer
+    // needs it (no longer 3-3, or the points now decide it), instead of refusing the correction.
+    const ga = clean6.filter(g => g.w === 'a').length;
+    const gb = clean6.filter(g => g.w === 'b').length;
+    const full = clean6.every(g => g.sa !== null && g.sb !== null);
+    const level = clean6.reduce((x, g) => x + (g.sa ?? 0) - (g.sb ?? 0), 0) === 0;
+    if (t.stage === 'L' || ga !== 3 || gb !== 3 || (full && !level)) decider = null;
+  }
+  if (adult && decider) {
+    // Adults: the league never has a decider (3-3 = draw); a knockout 3-3 is decided by cumulative
+    // points — the host decides only if those are level (or not entered), with a reason.
+    if (t.stage === 'L') fail(400, 'A 3–3 in the league is a draw — it is not decided by the host');
+    const ga = clean6.filter(g => g.w === 'a').length;
+    const gb = clean6.filter(g => g.w === 'b').length;
+    if (ga !== 3 || gb !== 3) fail(400, 'A host decision is only for a 3–3');
+    const full = clean6.every(g => g.sa !== null && g.sb !== null);
+    const pa = clean6.reduce((x, g) => x + (g.sa ?? 0), 0);
+    const pb = clean6.reduce((x, g) => x + (g.sb ?? 0), 0);
+    if (full && pa !== pb) fail(400, 'This 3–3 is decided by cumulative points — no host decision needed');
+    const reason = clean(deciderReason).slice(0, 200);
+    if (prev?.decider === decider && prev.deciderNote && !reason) deciderNote = prev.deciderNote;
+    else if (reason.length < 3) fail(400, 'Give the reason for the decision (e.g. "agreed by both captains")');
+    else deciderNote = { reason, by, at: now };
+  }
+  const next = { a: t.a, b: t.b, games: clean6, decider, ...(deciderNote ? { deciderNote } : {}) };
+
+  // Apply to a copy first: what does this change downstream?
+  const sim = JSON.parse(JSON.stringify(cup));
+  if (hasData(next)) sim.results[tie] = next;
+  else delete sim.results[tie];
+  const name = k => cup.teams.find(x => x.key === k)?.name ?? 'to be decided';
+  const changes = [];
+  if (adult && cup.status === 'KNOCKOUT' && t.stage === 'L') {
+    // A league correction after the quarter-finals exist: the line-up follows the new standings.
+    const q2 = view(sim, now).qualification;
+    if (!q2.top) {
+      sim.status = 'DRAW';
+      sim.seeds = [];
+      changes.push(q2.final
+        ? 'Teams are now level at the top 8 and need the host’s decision → the quarter-final line-up is unlocked'
+        : 'This league match is no longer complete → the quarter-final line-up is unlocked');
+    } else if (q2.top.join() !== cup.seeds.join()) {
+      sim.seeds = q2.top;
+      for (const k of cup.seeds) if (!q2.top.includes(k)) changes.push(`${name(k)} drops out of the top 8`);
+      for (const k of q2.top) if (!cup.seeds.includes(k)) changes.push(`${name(k)} moves into the top 8`);
+      q2.top.forEach((k, i) => { if (cup.seeds[i] !== k) changes.push(`Seed ${i + 1}: ${name(cup.seeds[i])} → ${name(k)}`); });
     }
   }
+  const v2 = view(sim, now);
+  const pair = k => `${name(k.a)} vs ${name(k.b)}`;
+  for (const k of v.knockout.ties) {
+    if (k.id === tie || !k.a || !k.b) continue; // only rounds that already exist
+    const k2 = v2.knockout.ties.find(x => x.id === k.id);
+    if (k2 && (k2.a !== k.a || k2.b !== k.b)) {
+      const had = hasData(cup.results[k.id]) && cup.results[k.id].a === k.a && cup.results[k.id].b === k.b;
+      changes.push(`${k.label}: ${pair(k)} → ${k2.a && k2.b ? pair(k2) : 'to be decided'}${had ? ' (its entered result no longer applies; it stays in the log)' : ''}`);
+    }
+  }
+  if (v.knockout.champion && v.knockout.champion !== v2.knockout.champion) {
+    changes.push(`Champion: ${name(v.knockout.champion)} → ${v2.knockout.champion ? name(v2.knockout.champion) : 'not decided'}`);
+  }
+  if (changes.length && !confirm) {
+    failWith(409, 'This correction changes the qualification or the bracket — check and confirm', { code: 'CONFIRM', changes });
+  }
+  cup.results = sim.results;
+  cup.seeds = sim.seeds;
+  cup.status = sim.status;
+  log(cup, {
+    at: now, by, kind: 'result', tie, label: t.stage === 'L' ? 'League' : t.label, a: name(t.a), b: name(t.b),
+    before: prev ? { games: prev.games, decider: prev.decider ?? null } : null,
+    after: hasData(next) ? { games: next.games, decider: next.decider } : null,
+    ...(deciderNote && deciderNote !== prev?.deciderNote ? { reason: deciderNote.reason } : {}),
+    ...(changes.length ? { changes } : {}),
+  });
 }
 
-export function lockKnockout(cup, { seeds, now }) {
+// Adults: the host decides the order of teams that are level on games and points (only where it
+// matters: the top-8 cut or the seeding), with a reason. Recorded with who and when.
+export function setTieBreak(cup, { teams, reason, clear = false, by = 'host', now }) {
+  if (formatOf(cup.teams.length) !== 'qf') fail(400, 'Only for the adults draw');
+  if (cup.status === 'KNOCKOUT') fail(409, 'The quarter-final line-up is locked — unlock it first');
+  if (!Array.isArray(teams) || teams.length < 2) fail(400, 'teams must list the level teams in the decided order');
+  const v = view(cup, now);
+  const g = v.qualification?.tieGroups.find(x => sameSet(x.teams, teams));
+  const nameOf = k => cup.teams.find(x => x.key === k)?.name ?? k;
+  if (clear) {
+    cup.tieBreaks = (cup.tieBreaks ?? []).filter(x => !sameSet(x.teams, teams));
+    log(cup, { at: now, by, kind: 'tiebreak-cleared', teams: teams.map(nameOf) });
+    return;
+  }
+  if (!g) fail(409, 'These teams are not level any more — refresh the page');
+  if (new Set(teams).size !== teams.length) fail(400, 'Each team once');
+  const why = clean(reason).slice(0, 200);
+  if (why.length < 3) fail(400, 'Give the reason for this decision');
+  // sig = the scores the decision was made on: if they change, the decision no longer applies.
+  cup.tieBreaks = [...(cup.tieBreaks ?? []).filter(x => !sameSet(x.teams, teams)), { teams: [...teams], sig: g.sig, reason: why, by, at: now }];
+  log(cup, { at: now, by, kind: 'tiebreak', teams: teams.map(nameOf), reason: why });
+}
+
+export function lockKnockout(cup, { seeds, by = 'host', now }) {
   const v = view(cup, now);
   if (v.phase !== 'league') fail(409, 'Lock the line-up after the draw, before the knockout');
+  if (v.qualification) {
+    // Adults: the top 8 of the final league standings, in rank order — never hand-picked.
+    const q = v.qualification;
+    if (!q.final) fail(409, `All ${q.total} league matches must be complete first (${q.complete} of ${q.total} done)`);
+    if (q.blocking.length) {
+      const nameOf = k => cup.teams.find(x => x.key === k)?.name ?? k;
+      fail(409, `Level teams need your decision first: ${q.blocking.map(g => g.teams.map(nameOf).join(' / ')).join('; ')}`);
+    }
+    cup.seeds = [...q.top];
+    cup.status = 'KNOCKOUT';
+    log(cup, { at: now, by, kind: 'lock', seeds: cup.seeds.map(k => cup.teams.find(x => x.key === k)?.name ?? k) });
+    return;
+  }
   const n = seedCountOf(cup.teams.length);
   const keys = new Set(cup.teams.map(t => t.key));
   if (!Array.isArray(seeds) || seeds.length !== n || new Set(seeds).size !== n || !seeds.every(k => keys.has(k))) {
@@ -408,16 +537,20 @@ export function lockKnockout(cup, { seeds, now }) {
   }
   cup.seeds = [...seeds];
   cup.status = 'KNOCKOUT';
+  log(cup, { at: now, by, kind: 'lock', seeds: cup.seeds.map(k => cup.teams.find(x => x.key === k)?.name ?? k) });
 }
 
-export function unlockKnockout(cup, { now }) {
+// Nothing is deleted: knockout results stay stored and apply again if the same teams meet.
+export function unlockKnockout(cup, { by = 'host', now }) {
   if (cup.status !== 'KNOCKOUT') fail(409, 'The knockout is not locked');
   const v = view(cup, now);
-  const used = v.knockout.ties.find(t => hasData(cup.results[t.id]));
+  const used = v.knockout.ties.find(t => hasData(cup.results[t.id]) && cup.results[t.id].a === t.a && cup.results[t.id].b === t.b);
   if (used) fail(409, `${used.label} has results — clear them first`);
-  for (const t of v.knockout.ties) delete cup.results[t.id];
+  // Kids keep their original behaviour: unlocking clears the knockout results.
+  if (!v.qualification) for (const t of v.knockout.ties) delete cup.results[t.id];
   cup.seeds = [];
   cup.status = 'DRAW';
+  log(cup, { at: now, by, kind: 'unlock' });
 }
 
 // Host-only extras (fairness data for every finished match).

@@ -15,7 +15,7 @@ export async function api(path, { method = 'GET', body } = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = data.error ?? (res.status >= 500 ? "Can't reach the server. Check the connection and try again." : `Request failed (${res.status})`);
-    throw Object.assign(new Error(message), { status: res.status });
+    throw Object.assign(new Error(message), { status: res.status, data });
   }
   return data;
 }

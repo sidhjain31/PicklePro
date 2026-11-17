@@ -116,7 +116,7 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 | `src/crowd.js` | Reactions relay (per room, rate-limited), predictions (`submitGuess`), leaderboard |
 | `src/auth.js` | Password login → signed HttpOnly cookie `admin` (`<expiry>.<hmac>`, 12 h, SameSite Strict, Secure in production), failed-login rate limit |
 | `src/excel.js` | Auction Excel export (any tournament) + spreadsheet import (organisers' formats) |
-| `test/*.test.js`, `test/qa/*.test.js` | 1040 tests (see [Testing](#9-testing)); `test/cup.test.js` = match draw |
+| `test/*.test.js`, `test/qa/*.test.js` | 1058 tests (see [Testing](#9-testing)); `test/cup.test.js` = match draw, `test/qualify.test.js` = adults rules |
 | `perf/load.mjs` | Auction load/stress/spike/soak script (isolated DB only) |
 
 **Client — shared (`client/src/`)**
@@ -136,6 +136,7 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 | File | What it does |
 |---|---|
 | `core.js` | **The rules** (pure functions, no I/O) — imported by the server too (`../../client/src/cup/core.js`): `newCup`, `cleanTeams/setTeams/setLooks/setSettings`, `openArena/backToSetup`, `drawMatch/undoMatch`, `timeline`, `proofText`, `view` (what a screen may see at server time `now`), results/`outcome`/standings, knockout (`lockKnockout/unlockKnockout`, bracket), `history`; constants `SLOTS`, `GAMES`, `WEAPONS`, `TIMING`, `PALETTE`, `AIM_MIN/MAX`, `MAX_TEAMS` |
+| `qualify.js` | **Adults rules** (pure, used by `core.js`): `ADULT_FORMAT` (8 qualifiers, QF/SF pairs), `leagueResult`, `knockoutOutcome`, `rankLeague` (tiers, ties, provisional status, reasons, top 8), `semiFinalPairs` |
 | `live.js` | `useCup(role)` (socket + first HTTP state + server clock offset + `openedAt` + 404 → `unavailable`), `cupApi`, `cupUrl`, `switchCup`, `teamOf`, `splitName`; 10-minute state cache (`cup-state-v2`); clears old demo/cache keys |
 | `CupLive.jsx` | Audience page (+ `CupSwitch` Main/Kids with LIVE/Done badges, `ComingSoon` incl. waking-server note) |
 | `CupAdmin.jsx` | Host page: `Setup` (teams table, imports, ⭐ Load ICC Season 2 teams, logos/colours), `SettingsDesk`, `DrawDesk`, `ResultsDesk`/`TieEditor`, `SeedDesk`, `KnockoutDesk`, `LooksDesk`, `Fairness`, `Tools` (↺ Restart, PDF, TV, new empty draw) |
@@ -182,9 +183,13 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 ### 5.1 Format (from the organisers' sheet; their timings are ignored)
 - Every team plays **one match (tie)** against a **drawn** opponent. A tie = **six doubles games**, same categories facing each other: **A/B, C/D, A/C, B/D, A/D, B/C** (`GAMES` in `core.js`; A–D = the team's four players; D is the woman in the main draw).
 - **No match numbers, courts or rounds are shown anywhere** (owner, 2026-11-17: the organisers schedule the matches themselves). Internally ties still have an order (`L1…`, `no`, and `court`/`round` fields in `core.js`), but no screen or PDF shows them. Knockout ties keep their names (QF1–QF4, Semi-final 1/2, Final, 3rd / 4th place).
-- A tie is won with **4+ games**; at **3–3** the total points decide (if entered), else the host taps a **decider**.
-- Standings: ties won → games won → points difference → points for. The host can reorder before locking (own tie-break rules).
-- **Knockout:** 8+ teams (main, 28 → 14 ties) → seeds 1–8 → **QF1 1v8, QF2 2v7, QF3 3v6, QF4 4v5** → **SF1 = W(QF1) v W(QF2), SF2 = W(QF3) v W(QF4)** → **Final**. 4–7 teams (kids, 4 → 2 ties) → **Final 1v2** + **3rd place 3v4**.
+- **Adults (8+ teams) — owner's rules of 2026-11-17, all in `client/src/cup/qualify.js` (pure, the only source of truth; numbers in `ADULT_FORMAT`):**
+  - League match: **4–2 / 5–1 / 6–0 = win, 3–3 = draw** (never decided by points or the host). Complete when all 6 games have a winner (tap or score).
+  - Ranking: **winners** (6–0, then 5–1, then 4–2; same games → more total points) → **draws** (always below every winner; by total points; both teams of one draw can qualify) → **losers** (never qualify). Still level on games **and** points where it matters (top-8 cut or seeding) → the **host decides** with a reason (`setTieBreak`, recorded who/when; a decision stops applying if those teams' scores change). Losers' ties never matter.
+  - Standings are **provisional** (status Qualified / Pending / Out with the reason for every rank) until all 14 matches are complete; the **top 8 = seeds** and are never hand-picked.
+  - Knockout: **QF1 1v8, QF2 2v7, QF3 3v6, QF4 4v5**; semis **re-seeded** — the 4 QF winners by league rank: **SF1 best v 4th-best, SF2 2nd v 3rd** → **Final**. A knockout 3–3 → more total points (only when all 6 games have points; else "waiting for the scores") → still level → host decides with a reason.
+  - Corrections that change the top 8, the seeding, a later round or the champion come back as a list the host must confirm (409 `CONFIRM`); nothing is deleted (stored results apply only when the same teams meet). Every change goes to the **score log** (`cup.audit`, who/when/before/after; the host types their name once per device).
+- **Kids (4 teams) — unchanged:** a tie is won with 4+ games; at 3–3 the points decide, else the host's decider; standings ties won → games → points difference → points for; host can reorder; **Final 1v2** + **3rd place 3v4**.
 - Phases: `setup` → (Open the arena) `draw` → (all paired) `league` → (Lock knockout) `knockout` → (Final decided) `done`.
 
 ### 5.2 Host flow (`/admin`, then the Main/Kids switch)
@@ -192,8 +197,8 @@ Switching Main/Kids remounts the page **without a reload** (`setEvent` + `App ke
 2. **The show** — name, suspense (`aimMs`, server accepts 1.5–9 s, default 3.5 s), shot (🎲 Surprise = changes every match, never the same within 3; or one fixed). (The courts setting was removed from the page; the server still accepts it.)
 3. **🎨 Logos & colours** — change any time (even mid-event); names/players lock when the arena opens.
 4. **Open the arena** → audiences see the crests rise. **🎯 Draw the next match (N/14 drawn)** per tap (optionally pick that match's shot). The button is locked while a show runs (counts down) and right after a tap until the show is confirmed. **↶ Undo last match** (only the latest, not during its show, not once it has results). **Back to team setup** while nothing is drawn.
-5. **Results** — per game tap the winning pair or type points; 3–3 → points or decider tap. Toasts on every phone.
-6. **🔒 Knockout line-up** — from the standings, reorderable → **Lock & reveal** (asks first if any league tie is undecided). Back-to-back VS cards on every screen. **Unlock** while no knockout result exists.
+5. **Results** — type **your name** once (score log), then per game tap the winning pair or type points (points rank draws/equal winners and decide a knockout 3–3, so enter them whenever possible). Adults 3–3 shows "draw"; Kids 3–3 → points or decider tap. Toasts on every phone.
+6. **🔒 Quarter-final line-up (Adults)** — built from the final standings; teams level at the cut/seeding are decided here (reorder ↑↓ + reason); preview of QF1–QF4; **Lock & reveal** only when all league matches are complete and nothing is level. **Kids:** knockout line-up from the standings, reorderable → Lock. **Unlock** while no knockout result exists. **📝 Score log** card lists every change.
 7. **Knockout results** → **Champions** overlay everywhere.
 8. **Tools** — **↺ Restart draw** (same teams, logos, settings; nothing drawn; type `RESTART`; refused while a show runs) · **📄 Matches PDF** (enabled once every team is drawn: one VS card per league match — logos, names, players A–D, VS, the six games; two per A4 page; no knockout, no match numbers/courts, no fairness hashes) · 📺 TV view · *Start a new match draw (empty, new name)* (type `NEW`). Restart/new keep the old draw in the database; to undo one, delete the newest `cups` document of that event in Atlas — the previous one becomes active again.
 9. **Fairness** card — re-checks every finished match's seal (✅ N/N).
@@ -412,7 +417,7 @@ Main/Kids switch; Setup (name, spin length, categories/order, lists by paste or 
 ## 9. Testing
 
 ### Automated (server)
-- `npm test` (repo root) → `server`: `node --test --test-concurrency=1 "test/**/*.test.js"` → **1040 tests** (auction unit/API/engine/race/DB/security/SIT suites + `cup.test.js` 13 match-draw tests). Uses isolated databases (`picklepro_qa_*`, `picklepro_test`) on the local MongoDB (`TEST_MONGODB_BASE`/`TEST_MONGODB_URI` to override). Takes a few minutes.
+- `npm test` (repo root) → `server`: `node --test --test-concurrency=1 "test/**/*.test.js"` → **1058 tests** (auction unit/API/engine/race/DB/security/SIT suites + `cup.test.js` 13 match-draw tests + `qualify.test.js` 18 adults-rules tests: the owner's spec cases A–L, Kids unchanged, and review regressions). Uses isolated databases (`picklepro_qa_*`, `picklepro_test`) on the local MongoDB (`TEST_MONGODB_BASE`/`TEST_MONGODB_URI` to override). Takes a few minutes.
 - `cup.test.js` covers: unique pairing over many full draws, weapons not repeating within 3, hidden-until-reveal, setup rules, undo rules, 3–3 outcomes, results validation, standings → QF → SF → Final, kids Final/3rd, host-route auth, a full live flow over the socket with seal verification and isolation from the auction, colours/looks, logo upload/storage/caching, bundled `s:` logos, Restart (keepTeams).
 - CI: GitHub Actions on push/PR to `main` (Node 22, MongoDB 8 service, tests + client build).
 - Client: no unit tests; `npm run build` must pass.
@@ -504,6 +509,12 @@ npm run build         # client production build (client/dist)
 
 ## 13. Current state, what next, limits
 
+**As of 2026-11-17 (night) — Adults league standings, QF qualification and re-seeded knockout (pushed to `main`)**
+- Rules in §5.1; change log entry of 2026-11-17 (night). Tests 1058/1058; local rehearsals Main + Kids passed under the new rules.
+- **Before the event, same two host actions as below** (Restart Adults → Load ICC Season 2 teams → Save; Kids → Load → Save).
+- Open items (spec defaults, not built): **walkovers / no-shows** (enter it as 6–0 by taps for now), schedules/courts (not wanted).
+- New WhatsApp poster: `marketing/qualification-poster.png` + `qualification-whatsapp.txt` (match day live in the app; no rules, light SP Tech credit).
+
 **As of 2026-11-17 — final teams, music cut, matches PDF, alerts, poster (pushed to `main`)**
 - Pushed to `main` at the owner's request ("push to main dont ask"); see the change log entry of 2026-11-17 for the commit and live checks.
 - **Production data needs two host actions before the event** (the code can't do them — they need the host login):
@@ -555,6 +566,14 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-17 (night) — Adults: league standings, QF qualification, re-seeded semis, score log
+- Owner's spec (`claude-code-prompt-qf-qualification.md`) + answers: league pairs only from the live draw; no schedule; **3–3 = draw** (waits for all league matches); winners 6–0 > 5–1 > 4–2 then points; draws after every winner by points; losers out; QF 1v8 2v7 3v6 4v5; **semis re-seeded by league rank** (best v 4th-best, 2nd v 3rd); knockout 3–3 → points → host decides with a reason; keep both taps and scores. Spec defaults used: level game rejected, unresolved ties = host decision with a reason, Final same rule, all 6 games played, walkovers not built, Kids unchanged, host name per device, audience sees provisional standings with status + reasons.
+- New `client/src/cup/qualify.js` (pure rules) used by `core.js`: `view()` adds `qualification` (rows with rank/reason/status, tie groups, blocking, `top`) and `lastChangeAt`; `setResult` validates (scores 0–999, decider rules), simulates the change and returns **409 `CONFIRM` + list** for corrections that move the top 8/seeding/later rounds/champion, logs to `cup.audit`; new `setTieBreak` (`POST /tiebreak`); `lockKnockout` uses the computed top 8; unlock keeps results (Adults). Server: Cup schema `tieBreaks`, `audit`; error responses carry `details`; `GET /admin` returns the last 300 log entries.
+- Pages: audience/TV **standings** table (Res, Games, Pts, status chip, reason, cut line, "How the top 8 is decided"; TV shows the top 12); match cards flag draws / waiting for points / host decision; host **Quarter-final line-up** desk (tie decisions, QF preview, lock), **score log**, name field, in-page reason/confirm dialogs; "drew 3–3" toast.
+- Code review fixes (same day): a stored 3–3 host decision no longer blocks correcting that match (dropped when no longer needed); losers' ties never ask for a decision; a decision stops applying when the scores it was made on change; with fewer than 16 adult teams (fewer than 8 winners + draws) the best losers fill the remaining places, shown as such; TV standings limited to 12; Kids unlock clears knockout results as before; score log reloads only when something changed; clearer 0–999 message. Not changed: the audit log lives in the cup document (rewritten on each change; fine for one event's few hundred entries).
+- Tests: `server/test/qualify.test.js` (18), `cup.test.js` updated; **1058/1058**; rehearsal script decides level teams like a host; local rehearsals Main + Kids passed.
+- Poster: `marketing/qualification-poster.html/.png` — "Track every team live" (scores, standings, who's through, quarters → final, find your team, champions; QR + link; date) with a small "Powered by SP Tech"; no rules (owner: the organisers explain those) + `qualification-whatsapp.txt`.
 
 ### 2026-11-17 (evening) — Restart fixed (in-page dialogs), music ends before the song's crash
 - **Restart "not working"** (owner): it never reached the server (the live Adults draw kept its test matches). It relied on a browser `prompt()` box (blocked/unreliable in some browsers, e.g. in-app browsers on phones) and any error showed only in the banner at the very top of the host page. Now every host confirmation (Restart, New draw, Undo, Lock, Unlock) is an **in-page dialog** (`useConfirm` in `CupAdmin.jsx`; Restart/New need the word typed, case-insensitive), and Restart shows ✅/❌ with the reason right under the button. Verified in a browser on a local copy of the production situation (old players, arena open, 2 matches): Restart → setup, same 28 teams, 0 matches; ⭐ Load ICC Season 2 teams → Save → new players + name "ICC Season 2 · Adults Match Draw", warning gone; Draw → Undo via the dialog.

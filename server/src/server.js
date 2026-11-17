@@ -82,7 +82,8 @@ export function createApp() {
     const status = err.status ?? (err.code === 11000 ? 409 : err.name === 'ValidationError' ? 400 : 500);
     if (status >= 500) console.error(err);
     const message = err.code === 11000 ? 'Conflicting update — refresh and try again' : status >= 500 ? 'Server error' : err.message;
-    res.status(status).json({ error: message });
+    // Some rule errors carry data for the page (e.g. the list of changes a correction would make).
+    res.status(status).json({ error: message, ...(status < 500 && err.details ? err.details : {}) });
   });
   return app;
 }

@@ -58,7 +58,10 @@ export const TieCard = memo(function TieCard({ state, tie, mine = null, open = f
           {started && <span className="tie-score">{tie.gb}</span>}
         </p>
       </div>
-      {tie.needsDecider && <p className="tie-flag">3–3 · waiting for the decider</p>}
+      {tie.draw && <p className="tie-flag draw">3–3 · draw (placed after all league matches)</p>}
+      {tie.needsPoints && <p className="tie-flag">3–3 · the points of every game decide — waiting for the scores</p>}
+      {tie.needsDecider && <p className="tie-flag">3–3 and level on points · the host decides</p>}
+      {tie.deciderNote && <p className="tie-flag ok">Host decision: {tie.deciderNote.reason}</p>}
       {children ?? (!tbd && (
         <details className="tie-games" open={open}>
           <summary>Games</summary>
@@ -95,7 +98,54 @@ export function TieList({ state, hideSeq = null, mine = null, title = 'Matches',
   );
 }
 
+// Adults: league standings with the quarter-final qualification (qualify.js) — result, games,
+// points, status and the reason for every rank.
+const STATUS = { qualified: ['Qualified', 'q'], out: ['Out', 'o'], pending: ['Pending', 'p'], tie: ['Level · host decides', 't'] };
+function QualifyTable({ state, mine, limit }) {
+  const q = state.qualification;
+  if (!q.complete) return null;
+  const rows = limit ? q.rows.slice(0, limit) : q.rows;
+  return (
+    <section className="cup-section" aria-label="Standings">
+      <h2 className="section-title">
+        Standings <span className={`st-badge${q.final ? ' final' : ''}`}>{q.final ? 'Final' : `Provisional: ${q.complete} of ${q.total} matches complete`}</span>
+      </h2>
+      <details className="st-rules">
+        <summary>How the top {q.qualifiers} is decided</summary>
+        <ol>
+          <li>Every team plays one league match of 6 games: 4–2, 5–1 or 6–0 is a win, 3–3 is a draw.</li>
+          <li><b>Winners first</b>: 6–0, then 5–1, then 4–2; same score → more total points.</li>
+          <li><b>Draws</b> come after every winner, by total points — both teams of a drawn match can go through.</li>
+          <li><b>Losers</b> can’t qualify.</li>
+          <li>Still level on games and points → the host decides (the reason is shown).</li>
+          <li>Top {q.qualifiers} → quarter-finals 1v8 · 2v7 · 3v6 · 4v5. Semi-finals: the 4 winners by league rank, best v 4th-best and 2nd v 3rd.</li>
+        </ol>
+      </details>
+      <div className="table-wrap">
+        <table className="standings qualify">
+          <thead>
+            <tr><th>#</th><th className="st-team">Team</th><th title="Result: won, drew, lost">Res</th><th title="Games won–lost">Games</th><th title="Total points in the 6 games">Pts</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.key} className={[r.pos === q.qualifiers && q.final ? 'cutline' : '', r.key === mine ? 'mine' : '', `st-${r.status}`].filter(Boolean).join(' ')}>
+                <td>{r.rank == null ? '–' : `${r.shared ? '=' : ''}${r.rank}`}</td>
+                <td className="st-team"><b>{teamOf(state, r.key)?.name}</b><small className="st-why">{r.reason}</small></td>
+                <td>{r.result ?? '–'}</td>
+                <td>{r.tier < 4 ? `${r.gw}–${r.gl}` : '–'}</td>
+                <td>{r.tier < 4 ? r.pf : '–'}</td>
+                <td><span className={`st-chip ${STATUS[r.status][1]}`}>{STATUS[r.status][0]}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export function Standings({ state, mine = null, limit = null }) {
+  if (state.qualification) return <QualifyTable state={state} mine={mine} limit={limit} />;
   const rows = limit ? state.standings.slice(0, limit) : state.standings;
   const cut = state.knockout.seedCount;
   if (!state.ties.some(t => t.played)) return null;

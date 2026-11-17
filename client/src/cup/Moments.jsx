@@ -53,6 +53,11 @@ export function Moments({ state }) {
     const old = new Map(all(before).map(t => [t.id, t]));
     for (const t of all(state)) {
       const o = old.get(t.id);
+      if (t.draw && o && !o.draw) {
+        // Adults league 3-3: a draw, placed after all league matches (no winner yet).
+        setToast({ key: `${t.id}-${Date.now()}`, text: `${teamOf(state, t.a)?.name} and ${teamOf(state, t.b)?.name} drew 3–3`, label: 'Result' });
+        sfx.result();
+      }
       if (t.winner && o && !o.winner && t.id !== 'F') {
         const w = teamOf(state, t[t.winner]);
         const l = teamOf(state, t[t.winner === 'a' ? 'b' : 'a']);
