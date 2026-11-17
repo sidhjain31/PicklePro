@@ -58,10 +58,11 @@ export const TieCard = memo(function TieCard({ state, tie, mine = null, open = f
           {started && <span className="tie-score">{tie.gb}</span>}
         </p>
       </div>
-      {tie.draw && <p className="tie-flag draw">3–3 · draw (placed after all league matches)</p>}
-      {tie.needsPoints && <p className="tie-flag">3–3 · the points of every game decide — waiting for the scores</p>}
-      {tie.needsDecider && <p className="tie-flag">3–3 and level on points · the host decides</p>}
-      {tie.deciderNote && <p className="tie-flag ok">Host decision: {tie.deciderNote.reason}</p>}
+      {/* With children (the host's editor) the result is in its footer instead. */}
+      {!children && tie.draw && <p className="tie-flag draw">3–3 · draw (placed after all league matches)</p>}
+      {!children && tie.needsPoints && <p className="tie-flag">3–3 · the points of every game decide — waiting for the scores</p>}
+      {!children && tie.needsDecider && <p className="tie-flag">3–3 and level on points · the host decides</p>}
+      {!children && tie.deciderNote && <p className="tie-flag ok">Host decision: {tie.deciderNote.reason}</p>}
       {children ?? (!tbd && (
         <details className="tie-games" open={open}>
           <summary>Games</summary>
@@ -83,6 +84,101 @@ export const TieCard = memo(function TieCard({ state, tie, mine = null, open = f
     </article>
   );
 });
+
+// ---------- Live score cards (match day) ----------
+
+const hasPoints = g => g.sa != null && g.sb != null;
+// What a match stands at, in plain words — the same line on the audience cards and the host's.
+export function resultOf(state, tie) {
+  const name = s => teamOf(state, tie[s])?.name ?? '';
+  const played = tie.ga + tie.gb;
+  if (tie.winner) {
+    const w = tie.winner;
+    const l = w === 'a' ? 'b' : 'a';
+    if (tie.ga === tie.gb) {
+      // 3–3: kids — the host's decider first, else points; adults knockout — points first.
+      const byPoints = state.qualification ? tie.games.every(hasPoints) && tie.pa !== tie.pb : !tie.decider;
+      return { kind: 'won', text: `🏆 ${name(w)} won ${byPoints ? 'on total points' : 'by the organisers’ decision'} (3–3 in games)` };
+    }
+    return { kind: 'won', text: `🏆 ${name(w)} won ${tie[`g${w}`]}–${tie[`g${l}`]}` };
+  }
+  if (tie.draw) return { kind: 'draw', text: '🤝 Draw · 3–3' };
+  if (tie.needsPoints) return { kind: 'wait', text: '3–3 · waiting for the points of every game' };
+  if (tie.needsDecider) return { kind: 'wait', text: '3–3 and level on points · the organisers decide' };
+  if (!played) return { kind: 'idle', text: 'Not started yet' };
+  return { kind: 'live', text: `● Live · ${played} of 6 games played` };
+}
+
+// Under every card: total points of both teams and the result.
+export function MatchFoot({ state, tie }) {
+  const r = resultOf(state, tie);
+  const points = tie.games.some(hasPoints);
+  const partial = points && tie.games.some(g => g.w && !hasPoints(g));
+  return (
+    <div className={`sc-foot sc-${r.kind}`}>
+      {points && (
+        <p className="sc-total">
+          <b className={tie.pa > tie.pb ? 'hi' : undefined}>{tie.pa}</b>
+          <span>Total points{partial ? ' (some games without points)' : ''}</span>
+          <b className={tie.pb > tie.pa ? 'hi' : undefined}>{tie.pb}</b>
+        </p>
+      )}
+      <p className="sc-result">{r.text}</p>
+      {tie.deciderNote && <p className="sc-note">Organisers’ decision: {tie.deciderNote.reason}</p>}
+    </div>
+  );
+}
+
+// Audience score card: both teams in full, every game with both pairs (full names) and the
+// points, totals and the result. Read only.
+export const ScoreCard = memo(function ScoreCard({ state, tie, mine = null }) {
+  const A = teamOf(state, tie.a);
+  const B = teamOf(state, tie.b);
+  const side = s => (tie.winner === s ? ' won' : tie.winner ? ' lost' : '');
+  return (
+    <article className={`tie score-card${tie.winner ? ' decided' : ''}${mine && (tie.a === mine || tie.b === mine) ? ' mine' : ''}`} id={`tie-${tie.id}`}>
+      {tie.stage !== 'L' && <header className="tie-head"><span className="tie-label">{tie.label}</span>{tie.note && <span className="tie-note">{tie.note}</span>}</header>}
+      <div className="sc-teams">
+        <p className={`sc-team${side('a')}`}>{A && <TeamLogo team={A} size={34} />}<b>{A?.name ?? 'To be decided'}</b></p>
+        <p className="sc-games" aria-label={`Games ${tie.ga} to ${tie.gb}`}><b>{tie.ga}</b><span>–</span><b>{tie.gb}</b></p>
+        <p className={`sc-team sc-b${side('b')}`}><b>{B?.name ?? 'To be decided'}</b>{B && <TeamLogo team={B} size={34} />}</p>
+      </div>
+      {A && B && (
+        <ol className="sc-rows">
+          {GAMES.map((g, i) => {
+            const x = tie.games[i];
+            return (
+              <li key={g.join()}>
+                <span className={`sc-pair${x.w === 'a' ? ' on' : ''}`}>{pairOf(A, g)}</span>
+                <span className="sc-mid"><i>{g.join('/')}</i><b>{hasPoints(x) ? `${x.sa}–${x.sb}` : x.w ? 'won' : '–'}</b></span>
+                <span className={`sc-pair sc-b${x.w === 'b' ? ' on' : ''}`}>{pairOf(B, g)}</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      {A && B && <MatchFoot state={state} tie={tie} />}
+    </article>
+  );
+});
+
+// Live first, then results, then matches still to play (stable inside each group).
+const RANK = { live: 0, wait: 1, won: 2, draw: 2, idle: 3 };
+export function ScoreBoard({ state, ties, mine = null, title, note = null }) {
+  const list = useMemo(() => ties.map((t, i) => ({ t, i, r: RANK[resultOf(state, t).kind] }))
+    .sort((x, y) => x.r - y.r || x.i - y.i).map(x => x.t), [state, ties]);
+  if (!list.length) return null;
+  const done = ties.filter(t => t.winner || t.draw).length;
+  return (
+    <section className="cup-section" aria-label={title}>
+      <h2 className="section-title">{title} <span className="section-count">{done}/{ties.length} finished</span></h2>
+      {note && <p className="hint">{note}</p>}
+      <div className="tie-grid score-grid">
+        {list.map(t => <ScoreCard key={t.id} state={state} tie={t} mine={mine} />)}
+      </div>
+    </section>
+  );
+}
 
 // League matches in draw order (no match numbers, courts or rounds — the organisers schedule them).
 export function TieList({ state, hideSeq = null, mine = null, title = 'Matches', empty, render }) {
@@ -153,9 +249,9 @@ export function Standings({ state, mine = null, limit = null }) {
     <section className="cup-section" aria-label="Standings">
       <h2 className="section-title">Standings</h2>
       <div className="table-wrap">
-        <table className="standings">
+        <table className="standings kids-table">
           <thead>
-            <tr><th>#</th><th className="st-team">Team</th><th title="Matches won">W</th><th title="Games won">G+</th><th title="Games lost">G−</th><th title="Points difference">±</th></tr>
+            <tr><th>#</th><th className="st-team">Team</th><th>Wins</th><th>Games won</th><th>Games lost</th><th>Total points</th><th>Points +/−</th></tr>
           </thead>
           <tbody>
             {rows.map(r => (
@@ -165,13 +261,14 @@ export function Standings({ state, mine = null, limit = null }) {
                 <td>{r.w}</td>
                 <td>{r.gw}</td>
                 <td>{r.gl}</td>
+                <td>{r.pf}</td>
                 <td>{r.pd > 0 ? `+${r.pd}` : r.pd}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="hint">Top {cut} go to the {state.knockout.format === 'qf' ? 'quarter-finals' : 'final and 3rd place match'}. Order: matches won, games won, points difference.</p>
+      <p className="hint">Top {cut} go to the {state.knockout.format === 'qf' ? 'quarter-finals' : 'final and 3rd place match'}. Order: wins, then games won, then points +/− (points scored minus points conceded).</p>
     </section>
   );
 }

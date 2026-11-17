@@ -509,6 +509,8 @@ npm run build         # client production build (client/dist)
 
 ## 13. Current state, what next, limits
 
+**As of 2026-11-18 (match day)** — live score cards / fast score entry / totals / burst fix (change log of 2026-11-18): client only, **not pushed yet** (Vercel preview for the owner; production = `ebbf046` until pushed).
+
 **As of 2026-11-17 (night) — Adults league standings, QF qualification and re-seeded knockout (pushed to `main`)**
 - Live since `11c40d5`. Rules in §5.1; change log entry of 2026-11-17 (night). Tests 1058/1058; local rehearsals Main + Kids passed under the new rules.
 - **Before the event, same two host actions as below** (Restart Adults → Load ICC Season 2 teams → Save; Kids → Load → Save).
@@ -566,6 +568,14 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-18 (match day) — Live score cards for the audience, fast score entry, totals on every card
+- **Audience (Adults + Kids), after the draw:** the page opens on **Live scores** — one read-only card per match: both team names in full, every game with both pairs' full names (winning pair in green) and its points, **total points of both teams**, and the result in words (🏆 X won 4–2 / won on total points (3–3 in games) / 🤝 Draw · 3–3 / ● Live · n of 6 games / Not started yet). Live matches first, then results, then matches still to play. Then the standings, the knockout; Find my match and the teams list at the bottom. Knockout phase: champions → knockout score cards → bracket → standings → league results. No host hints on audience cards (`ScoreCard`, `ScoreBoard`, `resultOf`, `MatchFoot` in `Boards.jsx`; order in `CupLive.jsx`).
+- **Host score entry (`TieEditor` in `CupAdmin.jsx`) rebuilt for speed** (owner: typing 15–12 then moving to game 2 lagged/blocked): typed points and taps show at once (winner green, totals and result update while typing), saves run in the background (one at a time per match, always the latest, half-typed games not sent), boxes never lock or reset while typing, Tab / Enter / the phone keyboard's "next" go score box → score box (name buttons are skipped), "Saving… / ✓ Saved / ⚠ Not saved — Try again" per card; the card only re-renders when its match changes. Every host card also shows the **total points + result** footer. Verified: 12 scores typed back to back → all kept, 2 requests, server = typed scores.
+- **Kids standings**: new **Total points** column; headings in words (Wins · Games won · Games lost · Total points · Points +/−) — W = matches won, G+/G− = games won/lost, ± = points scored minus conceded; fits a phone.
+- **Stray "burst" stuck between the step tabs** (owner screenshot, Kids after the knockout reveal): an effect's first frame can start a fraction of a millisecond before its own start time → negative ring radius → `arc()` threw → the effects loop died with that frame frozen on screen (and every later effect blocked). `fx.js`: progress clamped at 0 (ring, lightning, flying shots) and one failing effect is dropped instead of stopping the loop.
+- Full names wrap (no "…") on host cards too, without breaking words.
+- Client only (no server change). Tests 31/31 match-draw; build clean.
 
 ### 2026-11-17 (night) — Adults: league standings, QF qualification, re-seeded semis, score log
 - Owner's spec (`claude-code-prompt-qf-qualification.md`) + answers: league pairs only from the live draw; no schedule; **3–3 = draw** (waits for all league matches); winners 6–0 > 5–1 > 4–2 then points; draws after every winner by points; losers out; QF 1v8 2v7 3v6 4v5; **semis re-seeded by league rank** (best v 4th-best, 2nd v 3rd); knockout 3–3 → points → host decides with a reason; keep both taps and scores. Spec defaults used: level game rejected, unresolved ties = host decision with a reason, Final same rule, all 6 games played, walkovers not built, Kids unchanged, host name per device, audience sees provisional standings with status + reasons.

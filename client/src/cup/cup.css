@@ -655,3 +655,55 @@
   .standings.qualify th:nth-child(5), .standings.qualify td:nth-child(5) { display: none; }
   .standings.qualify .st-team { min-width: 0; }
 }
+
+/* ---------- Match day: score cards (audience), totals + result under every card ---------- */
+/* Full team and player names: wrap instead of "…" (people look for their names). */
+.tie-side b { white-space: normal; overflow-wrap: break-word; font-size: 1.1rem; line-height: 1.05; }
+.te-side { white-space: normal; overflow-wrap: break-word; text-align: center; line-height: 1.2; min-height: 2.4em; }
+@media (max-width: 480px) {
+  .tie-editor li { grid-template-columns: 2.1em minmax(0, 1fr) auto minmax(0, 1fr); gap: 4px; }
+  .te-side { font-size: 0.7rem; padding: 0.4em 0.35em; }
+  .te-score input { width: 2.3em; }
+}
+.tie-editor li.level .te-score input { border-color: #ff8a8a; box-shadow: 0 0 0 2px rgb(255 138 138 / 0.35); }
+.te-score input { font-size: 1rem; }
+.te-status { min-height: 1.2em; margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--side-a-hi); }
+.te-status.err { color: #ff9c9c; }
+
+.score-card { gap: 10px; }
+.sc-teams { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.sc-team { margin: 0; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sc-team.sc-b { justify-content: flex-end; text-align: right; }
+.sc-team b { font: 900 1.15rem/1.05 var(--display); text-transform: uppercase; overflow-wrap: break-word; }
+.sc-team.won b { color: var(--side-a-hi); }
+.sc-team.lost { opacity: 0.6; }
+.sc-games { margin: 0; display: flex; align-items: center; gap: 6px; font: 900 2rem/1 var(--display); color: var(--ball); font-variant-numeric: tabular-nums; }
+.sc-games span { color: var(--muted); font-size: 1.2rem; }
+.sc-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.sc-rows li { display: grid; grid-template-columns: minmax(0, 1fr) 4.4em minmax(0, 1fr); gap: 6px; align-items: center; }
+.sc-pair { padding: 6px 8px; border-radius: 8px; background: rgb(0 0 0 / 0.22); border: 1px solid rgb(255 255 255 / 0.12); font-size: 0.8rem; line-height: 1.2; overflow-wrap: break-word; }
+.sc-pair.sc-b { text-align: right; }
+.sc-pair.on { background: var(--side-a); border-color: var(--side-a-hi); color: var(--net); font-weight: 800; }
+.sc-mid { display: grid; justify-items: center; line-height: 1.1; }
+.sc-mid i { font-style: normal; font-size: 0.66rem; font-weight: 800; color: var(--ball); letter-spacing: 0.06em; }
+.sc-mid b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.sc-foot { display: grid; gap: 4px; padding-top: 8px; border-top: 1px dashed rgb(255 255 255 / 0.2); }
+.sc-total { margin: 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.sc-total b { font: 900 1.5rem/1 var(--display); font-variant-numeric: tabular-nums; min-width: 2ch; }
+.sc-total b:last-child { text-align: right; }
+.sc-total b.hi { color: var(--side-a-hi); }
+.sc-total span { text-align: center; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.sc-result { margin: 0; text-align: center; font-weight: 800; font-size: 0.95rem; }
+.sc-won .sc-result { color: var(--side-a-hi); }
+.sc-draw .sc-result { color: #8fd2ff; }
+.sc-live .sc-result { color: #ff8a8a; }
+.sc-wait .sc-result { color: var(--ball); }
+.sc-idle .sc-result { color: var(--muted); font-weight: 700; }
+.sc-note { margin: 0; text-align: center; font-size: 0.78rem; color: #8fd96b; }
+.kids-table th { letter-spacing: 0.04em; line-height: 1.15; white-space: normal; }
+.kids-table .st-team { white-space: normal; overflow-wrap: break-word; min-width: 0; }
+@media (max-width: 480px) {
+  .kids-table { font-size: 0.8rem; }
+  .kids-table th, .kids-table td { padding: 6px 3px; }
+  .kids-table th { font-size: 0.56rem; letter-spacing: 0.02em; }
+}

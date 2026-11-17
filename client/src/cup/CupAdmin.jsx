@@ -1,6 +1,6 @@
 // Host page of the match draw (/admin; old /fixtures/admin works): load the final teams (PDF), set up the show,
 // draw the matches live, enter results, lock the knockout line-up. Same login as the auction.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Login, Waking } from '../Admin.jsx';
 import { api } from '../api.js';
@@ -9,7 +9,7 @@ import { sha256 } from '../fair.js';
 import { ConnectionBanner, Header } from '../Live.jsx';
 import { ResumeSoundPrompt, StageTools } from '../Stage.jsx';
 import { MusicToggle, SmashArena } from './SmashArena.jsx';
-import { Bracket, ChampionBanner, CupSteps, Standings, TeamsGrid, TieCard, TieList } from './Boards.jsx';
+import { Bracket, ChampionBanner, CupSteps, MatchFoot, Standings, TeamsGrid, TieCard, TieList } from './Boards.jsx';
 import { AIM_MAX, AIM_MIN, GAMES, PALETTE, SLOTS, WEAPONS, ordinal, proofText } from './core.js';
 import { ADULT_FORMAT } from './qualify.js';
 import { colorOf, prepareLogo, useLogo } from './looks.jsx';
@@ -516,26 +516,115 @@ function DrawDesk({ state, run, busy, serverNow, openedAt, confirm }) {
 
 // ---------- Results ----------
 
-function TieEditor({ state, tie, run, busy, confirm }) {
+// Score entry built for speed: what the host types or taps shows at once (winner in green), saves in
+// the background (one save at a time per match, always the latest), and the boxes never lock or
+// reset while typing. A half-typed game (one side only, or a level score) is not sent.
+const draftOf = g => ({ w: g.w ?? null, sa: g.sa ?? '', sb: g.sb ?? '' });
+const ready = g => g.sa !== '' && g.sb !== '' && Number(g.sa) !== Number(g.sb);
+const filled = v => v !== '' && v != null;
+const gameKey = g => (filled(g.sa) && filled(g.sb) ? `${Number(g.sa)}-${Number(g.sb)}` : `${g.w ?? ''}|${g.sa ?? ''}|${g.sb ?? ''}`);
+// A draft game as the server would store it (null = not ready to send).
+const toGame = g => (ready(g) ? { w: Number(g.sa) > Number(g.sb) ? 'a' : 'b', sa: Number(g.sa), sb: Number(g.sb) } : g.sa === '' && g.sb === '' ? { w: g.w, sa: null, sb: null } : null);
+
+// Totals, games won and the result from the games on screen, so a typed score shows at once.
+function onScreen(tie, games) {
+  const ga = games.filter(g => g.w === 'a').length;
+  const gb = games.filter(g => g.w === 'b').length;
+  const pa = games.reduce((x, g) => x + (g.sa ?? 0), 0);
+  const pb = games.reduce((x, g) => x + (g.sb ?? 0), 0);
+  if (games.every((g, i) => gameKey(g) === gameKey(tie.games[i]))) return { ...tie, games, pa, pb };
+  // Not saved yet: a clear win shows straight away; a 3-3 waits for the server's rules.
+  return { ...tie, games, ga, gb, pa, pb, winner: ga >= 4 ? 'a' : gb >= 4 ? 'b' : null, draw: false, needsPoints: false, needsDecider: false, deciderNote: null };
+}
+
+const TieEditor = memo(function TieEditor({ state, tie, run, busy, confirm }) {
   const A = teamOf(state, tie.a);
   const B = teamOf(state, tie.b);
-  const [scores, setScores] = useState(() => tie.games.map(g => [g.sa ?? '', g.sb ?? '']));
+  const [draft, setDraft] = useState(() => tie.games.map(draftOf));
+  const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | { error }
+  const live = useRef(tie);
+  live.current = tie;
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const base = useRef(tie.games.map(draftOf)); // the server's games the draft was built on
+  const timer = useRef(0);
+  const saving = useRef(false);
+  const again = useRef(false);
   const sig = JSON.stringify(tie.games);
-  useEffect(() => setScores(tie.games.map(g => [g.sa ?? '', g.sb ?? ''])), [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  // New server data: take it for every game the host hasn't changed locally (keeps half-typed games).
+  useEffect(() => {
+    const next = live.current.games.map(draftOf);
+    setDraft(d => d.map((g, i) => (gameKey(g) === gameKey(base.current[i]) ? next[i] : g)));
+    base.current = next;
+  }, [sig]);
+  useEffect(() => () => clearTimeout(timer.current), []);
   if (!A || !B) return <TieCard state={state} tie={tie} />;
+
+  const post = body => cupApi('/result', { method: 'PUT', body: { tie: tie.id, by: hostName(), ...body } });
   // Corrections that change the top 8, the seeding or a later knockout round come back with the list
   // of changes: show it and send again only if the host confirms.
-  const send = (games, decider = tie.decider, deciderReason = null) => run(async () => {
-    const body = { tie: tie.id, games, decider, deciderReason, by: hostName() };
+  const confirmed = async body => {
     try {
-      return await cupApi('/result', { method: 'PUT', body });
+      return await post(body);
     } catch (err) {
       if (err.data?.code !== 'CONFIRM') throw err;
       const ok = await confirm({ title: 'Confirm this correction', body: err.message, list: err.data.changes, okLabel: 'Apply the correction' });
-      return ok ? cupApi('/result', { method: 'PUT', body: { ...body, confirm: true } }) : null;
+      if (!ok) throw Object.assign(new Error('correction cancelled — the saved result is unchanged'), { cancelled: true });
+      return post({ ...body, confirm: true });
     }
+  };
+  const payload = () => draftRef.current.map((g, i) => {
+    const x = toGame(g);
+    return x ? { ...x, w: ready(g) ? null : x.w } : live.current.games[i];
   });
+  const save = async () => {
+    clearTimeout(timer.current);
+    if (saving.current) { again.current = true; return; }
+    const games = payload();
+    if (games.every((g, i) => gameKey(g) === gameKey(live.current.games[i]))) return;
+    saving.current = true;
+    setStatus('saving');
+    try {
+      await confirmed({ games, decider: live.current.decider });
+      setStatus('saved');
+    } catch (err) {
+      if (err.status === 401) location.reload();
+      setStatus({ error: err.message });
+      if (err.cancelled || err.status === 400 || err.status === 409) {
+        // Refused: show what is really saved again.
+        base.current = live.current.games.map(draftOf);
+        draftRef.current = base.current;
+        setDraft(base.current);
+        again.current = false;
+      }
+    } finally {
+      saving.current = false;
+      if (again.current) { again.current = false; save(); }
+    }
+  };
+  const later = ms => { clearTimeout(timer.current); timer.current = setTimeout(save, ms); };
+  const tap = (i, side) => {
+    const won = toGame(draftRef.current[i])?.w ?? live.current.games[i].w;
+    draftRef.current = draftRef.current.map((g, k) => (k === i ? { w: won === side ? null : side, sa: '', sb: '' } : g));
+    setDraft(draftRef.current);
+    later(0);
+  };
+  const type = (i, j, v) => {
+    const val = v.replace(/\D/g, '').slice(0, 2);
+    draftRef.current = draftRef.current.map((g, k) => (k !== i ? g : j === 0 ? { ...g, sa: val } : { ...g, sb: val }));
+    setDraft(draftRef.current);
+    later(1500); // phone keyboards: saves after a short pause even without leaving the box
+  };
+  const next = e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const all = [...e.currentTarget.closest('.tie-editor').querySelectorAll('input')];
+    (all[all.indexOf(e.currentTarget) + 1] ?? e.currentTarget).focus();
+    later(150);
+  };
+
   const adultKnockout = Boolean(state.qualification) && tie.stage !== 'L';
+  const send = (games, decider, deciderReason = null) => run(() => confirmed({ games, decider, deciderReason }));
   const decide = async side => {
     if (tie.decider === side) return send(tie.games, null);
     if (!adultKnockout) return send(tie.games, side);
@@ -543,33 +632,26 @@ function TieEditor({ state, tie, run, busy, confirm }) {
     const reason = await confirm({ title: `${name} wins this 3–3?`, body: 'Only when the points can’t decide it. Everyone will see the reason.', input: 'Reason (e.g. golden point, agreed by both captains)', okLabel: 'Record decision' });
     if (reason) send(tie.games, side, reason);
   };
-  const setWinner = (i, side) => {
-    const games = tie.games.map((g, k) => (k !== i ? g : g.w === side ? { w: null, sa: null, sb: null } : { w: side, sa: null, sb: null }));
-    send(games);
-  };
-  const commitScore = i => {
-    const [sa, sb] = scores[i];
-    const g = tie.games[i];
-    if (String(sa) === String(g.sa ?? '') && String(sb) === String(g.sb ?? '')) return;
-    const both = sa !== '' && sb !== '';
-    send(tie.games.map((x, k) => (k !== i ? x : both ? { w: null, sa: Number(sa), sb: Number(sb) } : { w: x.w, sa: null, sb: null })));
-  };
   const pair = (T, g) => `${T.players[g[0]] || g[0]} & ${T.players[g[1]] || g[1]}`;
+  // What the card shows right now: the draft (typed or tapped), not only what the server has.
+  const shown = onScreen(tie, draft.map((g, i) => toGame(g) ?? tie.games[i]));
   return (
-    <TieCard state={state} tie={tie}>
+    <TieCard state={state} tie={shown}>
       <ol className="tie-editor">
         {GAMES.map((g, i) => {
-          const r = tie.games[i];
+          const r = shown.games[i];
+          const level = filled(draft[i].sa) && filled(draft[i].sb) && Number(draft[i].sa) === Number(draft[i].sb);
           return (
-            <li key={g.join()}>
+            <li key={g.join()} className={level ? 'level' : undefined}>
               <b className="te-code">{g.join('/')}</b>
-              <button className={`te-side${r.w === 'a' ? ' on' : ''}`} disabled={busy} onClick={() => setWinner(i, 'a')}>{pair(A, g)}</button>
+              {/* tabIndex -1: Tab / the keyboard's "next" goes score box to score box. */}
+              <button type="button" tabIndex={-1} className={`te-side${r.w === 'a' ? ' on' : ''}`} onClick={() => tap(i, 'a')}>{pair(A, g)}</button>
               <span className="te-score">
-                <input inputMode="numeric" value={scores[i][0]} aria-label={`${g.join('/')} ${A.name} points`} onChange={e => setScores(s => s.map((x, k) => (k === i ? [e.target.value.replace(/\D/g, '').slice(0, 2), x[1]] : x)))} onBlur={() => commitScore(i)} />
+                <input inputMode="numeric" enterKeyHint="next" value={draft[i].sa} aria-label={`${g.join('/')} ${A.name} points`} onChange={e => type(i, 0, e.target.value)} onBlur={() => later(150)} onKeyDown={next} />
                 –
-                <input inputMode="numeric" value={scores[i][1]} aria-label={`${g.join('/')} ${B.name} points`} onChange={e => setScores(s => s.map((x, k) => (k === i ? [x[0], e.target.value.replace(/\D/g, '').slice(0, 2)] : x)))} onBlur={() => commitScore(i)} />
+                <input inputMode="numeric" enterKeyHint="next" value={draft[i].sb} aria-label={`${g.join('/')} ${B.name} points`} onChange={e => type(i, 1, e.target.value)} onBlur={() => later(150)} onKeyDown={next} />
               </span>
-              <button className={`te-side${r.w === 'b' ? ' on' : ''}`} disabled={busy} onClick={() => setWinner(i, 'b')}>{pair(B, g)}</button>
+              <button type="button" tabIndex={-1} className={`te-side${r.w === 'b' ? ' on' : ''}`} onClick={() => tap(i, 'b')}>{pair(B, g)}</button>
             </li>
           );
         })}
@@ -581,10 +663,17 @@ function TieEditor({ state, tie, run, busy, confirm }) {
           <button className={`chip${tie.decider === 'b' ? ' on' : ''}`} disabled={busy} onClick={() => decide('b')}>{B.name}</button>
         </div>
       )}
-      <p className="hint">Tap the winning pair, or type the points (the winner follows the score). {state.qualification ? 'Points rank the draws and equal winners and decide a knockout 3–3 — enter them whenever you can.' : ''}</p>
+      <MatchFoot state={state} tie={shown} />
+      <p className={`te-status${status?.error ? ' err' : ''}`} aria-live="polite">
+        {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : status?.error ? <>⚠ Not saved: {status.error} <button type="button" className="link" onClick={() => save()}>Try again</button></> : null}
+      </p>
+      <p className="hint">Tap the winning pair, or type the points (the winner follows the score; Enter jumps to the next box). {state.qualification ? 'Points rank the draws and equal winners and decide a knockout 3–3 — enter them whenever you can.' : ''}</p>
     </TieCard>
   );
-}
+  // Re-render only when this match, its teams or the host's busy state change (not on every update).
+}, (p, n) => p.busy === n.busy && p.run === n.run && p.confirm === n.confirm && Boolean(p.state.qualification) === Boolean(n.state.qualification)
+  && (p.tie === n.tie || JSON.stringify(p.tie) === JSON.stringify(n.tie))
+  && JSON.stringify([teamOf(p.state, p.tie.a), teamOf(p.state, p.tie.b)]) === JSON.stringify([teamOf(n.state, n.tie.a), teamOf(n.state, n.tie.b)]));
 
 function ResultsDesk({ state, run, busy, confirm }) {
   const q = state.qualification;

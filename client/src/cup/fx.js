@@ -39,7 +39,18 @@ function frame(t) {
   const dt = Math.min(3, (t - lastT) / 16.67);
   lastT = t;
   g.clearRect(0, 0, W, H);
-  for (const it of items) if (it(g, t, dt) === false) items.delete(it);
+  for (const it of items) {
+    // One bad effect must never freeze the canvas: drop it and keep animating (a thrown error used to
+    // stop the loop with its last frame stuck on screen, and block every later effect).
+    try {
+      if (it(g, t, dt) === false) items.delete(it);
+    } catch {
+      items.delete(it);
+      g.setTransform(Math.min(2, window.devicePixelRatio || 1), 0, 0, Math.min(2, window.devicePixelRatio || 1), 0, 0);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+    }
+  }
   if (items.size) raf = requestAnimationFrame(frame);
   else {
     raf = 0;
@@ -125,7 +136,8 @@ export function ring(x, y, { color = '#ffffff', r = 90, ms = 600, width = 6 } = 
   if (reduced()) return;
   const t0 = performance.now();
   add((ctx, t) => {
-    const k = (t - t0) / ms;
+    // The frame time can be a little before t0: clamp, or the radius goes negative and arc() throws.
+    const k = Math.max(0, (t - t0) / ms);
     if (k >= 1) return false;
     ctx.globalAlpha = 1 - k;
     ctx.strokeStyle = color;
@@ -174,7 +186,7 @@ export function bolt(x1, y1, x2, y2, { ms = 500, color = '#9fd8ff', width = 3, b
   let forks = [];
   let lastGen = 0;
   add((ctx, t) => {
-    const k = (t - t0) / ms;
+    const k = Math.max(0, (t - t0) / ms);
     if (k >= 1) return false;
     if (!pts || t - lastGen > 55) {
       lastGen = t;
@@ -239,7 +251,7 @@ function fly({ path, ms, ease = t => t, draw, trail, scale = () => 1 }) {
     const t0 = performance.now();
     const hist = [];
     add((ctx, t, dt) => {
-      const raw = Math.min(1, (t - t0) / ms);
+      const raw = Math.min(1, Math.max(0, (t - t0) / ms));
       const k = ease(raw);
       const p = path(k);
       const q = path(Math.min(1, k + 0.01));

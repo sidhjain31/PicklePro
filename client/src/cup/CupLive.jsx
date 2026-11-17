@@ -8,7 +8,7 @@ import { ConnectionBanner, Header } from '../Live.jsx';
 import { ResumeSoundPrompt } from '../Stage.jsx';
 import { useEvent } from '../event.js';
 import { SmashArena } from './SmashArena.jsx';
-import { Bracket, ChampionBanner, CupSteps, FindMatch, Standings, TeamsGrid, TieList } from './Boards.jsx';
+import { Bracket, ChampionBanner, CupSteps, FindMatch, ScoreBoard, Standings, TeamsGrid, TieList } from './Boards.jsx';
 import { cupUrl, switchCup, useCup, useFollow } from './live.js';
 import { MyMatchAlert, followedTeam } from './MyMatch.jsx';
 import { Moments } from './Moments.jsx';
@@ -113,11 +113,15 @@ export function CupLive() {
           )}
           {p === 'draw' && <SmashArena state={state} serverNow={serverNow} onShow={setShow} openedAt={openedAt} />}
           {(p === 'setup' || p === 'draw') && findMatch}
+          {p === 'draw' && <TieList state={visible} mine={mine} title="Matches drawn" empty="The first match is about to be drawn…" />}
+          {/* Match day: live scores first, then the leaderboard; who-plays-whom and the teams go last. */}
           {(p === 'knockout' || p === 'done') && <ChampionBanner state={state} />}
+          {(p === 'knockout' || p === 'done') && <ScoreBoard state={state} ties={state.knockout.ties.filter(t => t.a && t.b)} mine={mine} title="Knockout · live scores" />}
           {(p === 'knockout' || p === 'done') && <Bracket state={state} />}
-          {p !== 'setup' && <TieList state={visible} mine={mine} title={p === 'draw' ? 'Matches drawn' : 'Matches'} empty={p === 'draw' ? 'The first match is about to be drawn…' : null} />}
-          {p === 'league' && <Bracket state={state} />}
+          {p === 'league' && <ScoreBoard state={state} ties={state.ties} mine={mine} title="Live scores" note="Every match, game by game. Live matches first." />}
           {p !== 'setup' && p !== 'draw' && <Standings state={state} mine={mine} />}
+          {p === 'league' && <Bracket state={state} />}
+          {(p === 'knockout' || p === 'done') && <ScoreBoard state={state} ties={state.ties} mine={mine} title="League results" />}
           {p !== 'setup' && p !== 'draw' && findMatch}
           {p !== 'draw' && <TeamsGrid state={state} />}
         </main>
