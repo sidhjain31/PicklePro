@@ -66,6 +66,7 @@ These come from the owner's own words over both sessions. Follow them.
 
 | What | Where | Notes |
 |---|---|---|
+| Keep-awake monitor | **UptimeRobot** (owner's account, free plan): HTTP monitor `picklepro-api.onrender.com/api/health` (id 804247387) | Pings the server so the free Render instance never sleeps; e-mails the owner if it goes down. As of 2026-11-18: Up for 1 month 5 days, 100 % uptime. (Its detail/edit pages don't load in the Claude desktop browser pane; check the interval = 5 min in a normal browser.) `/api/health` returns `{"ok":true,"db":"up"}`, so it also watches the database. |
 | Client hosting | Vercel team **`sp-tech3`**, project **`pickle-pro`**, root dir `client` | Git auto-deploy on push to `main` works again (it was broken 2026-10-12 → CLI deploys were used). Vercel CLI is logged in on the owner's laptop. |
 | Server + backup site | Render free web service **`picklepro-api`** → https://picklepro-api.onrender.com | `render.yaml`. Builds the client too, so the Render URL is a full backup site (`/`, `/admin`, `/auction`…). Auto-deploys on push to `main`. No Render CLI on the laptop. |
 | Health | https://picklepro-api.onrender.com/api/health | `{"ok":true,"db":"up"}` |
@@ -489,7 +490,7 @@ npm run build         # client production build (client/dist)
 - [ ] When happy: **↺ Restart draw** (type RESTART) in Main and in Kids → both back to *Coming up* with the same teams, nothing drawn.
 
 **On the day**
-- [ ] 15 min before: open https://picklepro-api.onrender.com/api/health (wakes the free server, first load can take ~1 min), then `/admin` and log in. Open pages keep the server awake.
+- [ ] 15 min before: check UptimeRobot shows the server **Up** (it keeps it awake); if in doubt open https://picklepro-api.onrender.com/api/health (a sleeping server takes ~1 min), then `/admin` and log in.
 - [ ] TV: open https://pickle-pro-peach.vercel.app/tv, tap **Tap for sound** and **Full screen** once. Share https://pickle-pro-peach.vercel.app (QR on the TV).
 - [ ] No pushes or deploys during the event.
 - [ ] **Open the arena** → **Draw match 1 … 14** (wait for each show; the button counts down). Results → **Lock knockout** → knockout results → champions.
@@ -540,7 +541,7 @@ npm run build         # client production build (client/dist)
 - Possibly undo-Restart from the host page (today: delete the newest `cups` document).
 
 **Known limits**
-- Single server instance (locks, rate limits, timers in memory). Render free tier sleeps after 15 idle minutes and has monthly hour limits. Atlas M0 has no automatic backups.
+- Single server instance (locks, rate limits, timers in memory). Render free tier sleeps after 15 idle minutes (kept awake by the UptimeRobot monitor) and has 750 free instance hours a month (always-on ≈ 720–744 h: fine for this one service). Atlas M0 has no automatic backups.
 - Auction team counts fixed per event (28 / 4; `EVENTS` in `models.js`); kids format fixed.
 - Web vibration doesn't work on iPhones; wake lock can be blocked by low-power mode.
 - Vercel previews need the SP TECH login and use production data.
@@ -569,6 +570,9 @@ npm run build         # client production build (client/dist)
 ## 15. Change log
 
 Newest first. Add an entry for every change.
+
+### 2026-11-18 (night) — UptimeRobot keep-awake confirmed
+- Owner asked to set up UptimeRobot: the owner's account already had an HTTP monitor on `https://picklepro-api.onrender.com/api/health` (Up 1 month 5 days, 100 %), so no duplicate was created. Links table, event checklist and known limits updated.
 
 ### 2026-11-18 (evening) — "My team" panel; 500-phone match-day load test
 - **⭐ My team** (`client/src/cup/MyTeam.jsx`, top of the audience page after the draw, Adults + Kids): the viewer picks their team once (dropdown, or 🔔 in Find my match — same `useFollow`, remembered on the phone; **Change** to switch). Shows: the team's match (being played now, else the latest knockout tie, else the league match) with games, total points and the result + "See every game ›"; **rank, status and the reason** ("Won 4–2 · 72 pts", Qualified/Pending/Out); **Around you** — the 2 teams above and below with result, games, points, status; the **last quarter-final place (8th)** if not in view; **"If it ended now: quarter-final vs X (8th v 1st)"** (league phase); **what's next** after the lock (⚔️ Next: Quarter-final 1 vs X / Through, waiting for the other quarter-finals / Out in the semi-final — X won / 🥈 Runners-up / 🏆 Champions; Kids: Final or 3rd place match). Kids: rank of 4 + "heading for the Final / 3rd place match" + mini table.
