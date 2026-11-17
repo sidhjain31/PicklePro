@@ -510,7 +510,7 @@ npm run build         # client production build (client/dist)
 ## 13. Current state, what next, limits
 
 **As of 2026-11-17 (night) — Adults league standings, QF qualification and re-seeded knockout (pushed to `main`)**
-- Rules in §5.1; change log entry of 2026-11-17 (night). Tests 1058/1058; local rehearsals Main + Kids passed under the new rules.
+- Live since `11c40d5`. Rules in §5.1; change log entry of 2026-11-17 (night). Tests 1058/1058; local rehearsals Main + Kids passed under the new rules.
 - **Before the event, same two host actions as below** (Restart Adults → Load ICC Season 2 teams → Save; Kids → Load → Save).
 - Open items (spec defaults, not built): **walkovers / no-shows** (enter it as 6–0 by taps for now), schedules/courts (not wanted).
 - New WhatsApp poster: `marketing/qualification-poster.png` + `qualification-whatsapp.txt` (match day live in the app; no rules, light SP Tech credit).
@@ -573,6 +573,7 @@ Newest first. Add an entry for every change.
 - Pages: audience/TV **standings** table (Res, Games, Pts, status chip, reason, cut line, "How the top 8 is decided"; TV shows the top 12); match cards flag draws / waiting for points / host decision; host **Quarter-final line-up** desk (tie decisions, QF preview, lock), **score log**, name field, in-page reason/confirm dialogs; "drew 3–3" toast.
 - Code review fixes (same day): a stored 3–3 host decision no longer blocks correcting that match (dropped when no longer needed); losers' ties never ask for a decision; a decision stops applying when the scores it was made on change; with fewer than 16 adult teams (fewer than 8 winners + draws) the best losers fill the remaining places, shown as such; TV standings limited to 12; Kids unlock clears knockout results as before; score log reloads only when something changed; clearer 0–999 message. Not changed: the audit log lives in the cup document (rewritten on each change; fine for one event's few hundred entries).
 - Tests: `server/test/qualify.test.js` (18), `cup.test.js` updated; **1058/1058**; rehearsal script decides level teams like a host; local rehearsals Main + Kids passed.
+- **Pushed `11c40d5`** (spec: push to `main` when tests + build pass); live ~1–2 min later — verified: Render state has `qualification` + `lastChangeAt`, Vercel serves the new bundle (`index-C6_QtM4Q.js`). Production data then: Adults = test draw in the league phase (28 teams, 14 matches drawn) → **Restart before the event**; Kids = no teams → Load → Save.
 - Poster: `marketing/qualification-poster.html/.png` — "Track every team live" (scores, standings, who's through, quarters → final, find your team, champions; QR + link; date) with a small "Powered by SP Tech"; no rules (owner: the organisers explain those) + `qualification-whatsapp.txt`.
 
 ### 2026-11-17 (evening) — Restart fixed (in-page dialogs), music ends before the song's crash
